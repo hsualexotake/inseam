@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { saveMessage } from "@convex-dev/agent";
 import { components, internal } from "../_generated/api";
 import { getUserId } from "../notes";
-import { noteSummaryAgent } from "../agents/noteSummary";
+import { getNoteSummaryAgent } from "../agents/noteSummary";
 import { AgentFactory } from "../agents/factory";
 
 // Send a message and generate a response (recommended async approach)
@@ -30,7 +30,6 @@ export const sendMessage = mutation({
       threadId,
       userId,
       prompt,
-      skipEmbeddings: true, // Will be generated lazily if needed
     });
 
     // Schedule async response generation
@@ -46,7 +45,8 @@ export const sendMessage = mutation({
 });
 
 // Internal action to generate response asynchronously
-export const generateResponse = internalAction({
+// Type annotation needed due to complex type inference
+export const generateResponse: ReturnType<typeof internalAction> = internalAction({
   args: {
     threadId: v.string(),
     promptMessageId: v.string(),
@@ -135,7 +135,7 @@ Content:
 ${noteContent}`;
 
     // Use the note summary agent
-    const result = await noteSummaryAgent.generateText(
+    const result = await getNoteSummaryAgent().generateText(
       ctx,
       { threadId, userId },
       { prompt }

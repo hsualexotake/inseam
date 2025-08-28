@@ -4,14 +4,19 @@
   "description": "",
   "scripts": {
     "dev": "convex dev",
-    "setup": "convex dev --until-success"
+    "setup": "convex dev --until-success",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "typecheck": "tsc --noEmit"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@ai-sdk/openai": "^2.0.22",
     "@convex-dev/agent": "^0.2.5",
+    "ai": "^5.0.26",
     "convex": "^1.25.0",
+    "convex-helpers": "^0.1.104",
     "openai": "^4.45.0",
     "zod": "^4.1.4"
   },

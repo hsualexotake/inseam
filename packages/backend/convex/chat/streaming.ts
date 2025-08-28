@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { saveMessage } from "@convex-dev/agent";
 import { components, internal } from "../_generated/api";
 import { getUserId } from "../notes";
-import { noteSummaryAgent } from "../agents/noteSummary";
+import { getNoteSummaryAgent } from "../agents/noteSummary";
 import { AgentFactory } from "../agents/factory";
 
 // Initiate streaming with saved message (recommended)
@@ -30,7 +30,6 @@ export const initiateStreamingMessage = mutation({
       threadId,
       userId,
       prompt,
-      skipEmbeddings: true,
     });
 
     // Schedule async streaming
@@ -158,13 +157,13 @@ ${noteContent}
 Provide a concise summary focusing on key points and actionable items.`;
 
     // Stream using the note summary agent
-    const result = await noteSummaryAgent.streamText(
+    const result = await getNoteSummaryAgent().streamText(
       ctx,
       { threadId, userId },
       { prompt },
       {
         saveStreamDeltas: {
-          chunking: "sentence",  // Stream sentence by sentence for summaries
+          chunking: "word",      // Stream word by word
           throttleMs: 200,       // Slower updates for readability
         },
       }

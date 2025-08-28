@@ -100,7 +100,7 @@ export const generateNoteSummaryWithAgent = internalAction({
       }
       
       // Import the agent directly for internal use
-      const { noteSummaryAgent } = await import("./agents/noteSummary");
+      const { getNoteSummaryAgent } = await import("./agents/noteSummary");
       
       // Format the prompt
       const prompt = `Please provide a concise summary of the following note:
@@ -111,7 +111,7 @@ Content:
 ${content}`;
       
       // Generate the summary with proper parameters (ctx, threadOpts, generateTextArgs)
-      const result = await noteSummaryAgent.generateText(
+      const result = await getNoteSummaryAgent().generateText(
         ctx, 
         { userId }, // threadOpts - second parameter
         { prompt }  // generateTextArgs - third parameter
@@ -125,6 +125,7 @@ ${content}`;
       
       return { success: true, summary };
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error("Error generating summary:", error);
       // Save error message as summary
       await ctx.runMutation(internal.notes.saveSummaryToNote, {

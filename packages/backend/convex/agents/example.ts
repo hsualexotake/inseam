@@ -6,7 +6,7 @@
 import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { AgentFactory } from "./factory";
-import { noteSummaryAgent } from "./noteSummary";
+import { getNoteSummaryAgent } from "./noteSummary";
 import { noteTools } from "../ai/tools";
 import { createThread } from "@convex-dev/agent";
 import { components } from "../_generated/api";
@@ -32,7 +32,7 @@ export const exampleNoteSummary = action({
     
     // Generate summary
     const prompt = `Summarize this note:\nTitle: ${title}\nContent: ${content}`;
-    const result = await noteSummaryAgent.generateText(
+    const result = await getNoteSummaryAgent().generateText(
       ctx,
       { threadId, userId },
       { prompt }
