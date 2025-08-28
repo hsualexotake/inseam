@@ -20,7 +20,7 @@ const { width } = Dimensions.get("window");
 
 export default function CreateNoteScreen({ navigation }) {
   const createNote = useMutation(api.notes.createNote);
-  const openaiKeySet = useQuery(api.openai.openaiKeySet) ?? true;
+  const aiModelsConfigured = useQuery(api.notes.aiModelsConfigured) ?? true;
 
   const [isAdvancedSummarizationEnabled, setIsAdvancedSummarizationEnabled] =
     useState(false);
@@ -69,12 +69,21 @@ export default function CreateNoteScreen({ navigation }) {
   });
 
   const createUserNote = async () => {
-    await createNote({
-      title: noteTitle,
-      content: noteContent,
-      isSummary: isAdvancedSummarizationEnabled,
-    });
-    navigation.navigate("NotesDashboardScreen");
+    try {
+      await createNote({
+        title: noteTitle,
+        content: noteContent,
+        isSummary: isAdvancedSummarizationEnabled,
+      });
+      // Reset form state
+      setNoteTitle("");
+      setNoteContent("");
+      setIsAdvancedSummarizationEnabled(false);
+      navigation.navigate("NotesDashboardScreen");
+    } catch (error) {
+      console.error("Failed to create note:", error);
+      // Consider adding alert or toast notification here
+    }
   };
 
   return (
@@ -137,8 +146,8 @@ export default function CreateNoteScreen({ navigation }) {
           <View style={styles.advancedSummarizationCheckboxContainer}>
             <TouchableOpacity
               onPress={toggleAdvancedSummarization}
-              style={openaiKeySet ? styles.checkbox : styles.checkboxDisabled}
-              disabled={!openaiKeySet}
+              style={aiModelsConfigured ? styles.checkbox : styles.checkboxDisabled}
+              disabled={!aiModelsConfigured}
             >
               {isAdvancedSummarizationEnabled && (
                 <AntDesign
@@ -150,11 +159,11 @@ export default function CreateNoteScreen({ navigation }) {
               )}
             </TouchableOpacity>
             <Text style={styles.advancedSummarizationText}>
-              Advanced Summarization {openaiKeySet ? "" : " (Disabled)"}
+              AI Summarization {aiModelsConfigured ? "" : " (Disabled)"}
             </Text>
           </View>
           <Text style={styles.advancedSummarizationSubtext}>
-            {openaiKeySet
+            {aiModelsConfigured
               ? "Check this box if you want to generate summaries using AI."
               : "Please set OPENAI_API_KEY in your environment variables."}
           </Text>

@@ -9,10 +9,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.22",
+    "@convex-dev/agent": "^0.2.5",
     "convex": "^1.25.0",
-    "openai": "^4.45.0"
+    "openai": "^4.45.0",
+    "zod": "^4.1.4"
   },
-   "devDependencies": {
+  "devDependencies": {
     "typescript": "5.8.3"
   }
 }

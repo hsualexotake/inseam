@@ -16,15 +16,24 @@ export default function CreateNote() {
   const cancelButtonRef = useRef(null);
 
   const createNote = useMutation(api.notes.createNote);
-  const openaiKeySet = useQuery(api.openai.openaiKeySet) ?? true;
+  const aiModelsConfigured = useQuery(api.notes.aiModelsConfigured) ?? true;
 
   const createUserNote = async () => {
-    await createNote({
-      title,
-      content,
-      isSummary: isChecked,
-    });
-    setOpen(false);
+    try {
+      await createNote({
+        title,
+        content,
+        isSummary: isChecked,
+      });
+      setOpen(false);
+      // Reset form
+      setTitle("");
+      setContent("");
+      setIsChecked(false);
+    } catch (error) {
+      console.error("Failed to create note:", error);
+      // Consider adding toast notification here
+    }
   };
 
   return (
@@ -134,7 +143,7 @@ export default function CreateNote() {
                           </div>
 
                           <Checkbox
-                            openaiKeySet={openaiKeySet}
+                            aiModelsConfigured={aiModelsConfigured}
                             isChecked={isChecked}
                             checkHandler={() => setIsChecked(!isChecked)}
                           />
