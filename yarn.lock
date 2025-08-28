@@ -880,7 +880,7 @@
   dependencies:
     "@clerk/types" "^4.61.0"
 
-"@clerk/nextjs@^6.23.0", "@clerk/nextjs@^6.31.6":
+"@clerk/nextjs@^6.31.6":
   version "6.31.6"
   resolved "https://registry.npmjs.org/@clerk/nextjs/-/nextjs-6.31.6.tgz"
   integrity sha512-9fwSmohQplfHohkOyHvYGxNNPr7TSr84B++BGHgwoZxLGvCogYSJe6mMqlrbrFVzNn6qUiiNyWml9d69/gXtfg==
