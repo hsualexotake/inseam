@@ -4,4 +4,4 @@ import agent from "@convex-dev/agent/convex.config";
 const app = defineApp();
 app.use(agent);
 
-export default app;
+export default app as ReturnType<typeof defineApp>;

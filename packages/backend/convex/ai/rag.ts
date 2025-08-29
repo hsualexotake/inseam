@@ -62,6 +62,7 @@ export async function searchContext(
   }
 ) {
   // Placeholder implementation
+  // eslint-disable-next-line no-console
   console.log("RAG search not yet implemented", { query, options });
   
   return {
@@ -85,6 +86,7 @@ export async function ingestDocument(
   }
 ) {
   // Placeholder implementation
+  // eslint-disable-next-line no-console
   console.log("Document ingestion not yet implemented", metadata);
   
   return {

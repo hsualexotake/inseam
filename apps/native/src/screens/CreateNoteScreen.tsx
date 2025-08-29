@@ -60,7 +60,7 @@ export default function CreateNoteScreen({ navigation }) {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
-  }, []);
+  }, [footerY]);
 
   // Calculate the position of the footer based on the Animated.Value
   const footerTranslateY = footerY.interpolate({

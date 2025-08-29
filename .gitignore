@@ -5,6 +5,11 @@ node_modules
 .pnp
 .pnp.js
 
+# package manager lock files (only yarn.lock allowed)
+package-lock.json
+pnpm-lock.yaml
+bun.lockb
+
 # testing
 coverage
 
@@ -36,3 +41,6 @@ yarn-error.log*
 
 # turbo
 .turbo
+
+# typescript
+*.tsbuildinfo

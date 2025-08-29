@@ -29,7 +29,11 @@ include:
 
 ### 1. Install dependencies
 
-If you don't have `yarn` installed, run `npm install --global yarn`.
+If you don't have `yarn` installed, use corepack (comes with Node.js 16+):
+```sh
+corepack enable
+corepack prepare yarn@1.22.19 --activate
+```
 
 Run `yarn`.
 
@@ -40,7 +44,7 @@ Run `yarn`.
 > that.
 
 ```sh
-npm run setup --workspace packages/backend
+yarn workspace @packages/backend setup
 ```
 
 The script will log you into Convex if you aren't already and prompt you to
@@ -78,7 +82,7 @@ environment variables.
 Run the following command to run both the web and mobile apps:
 
 ```sh
-npm run dev
+yarn dev
 ```
 
 This will allow you to use the ⬆ and ⬇ keyboard keys to see logs for each
@@ -91,7 +95,7 @@ If you'd rather see all of the logs in one place, delete the
 In order to both deploy the frontend and Convex, run this as the build command from the apps/web directory:
 
 ```sh
-cd ../../packages/backend && npx convex deploy --cmd 'cd ../../apps/web && turbo run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL
+cd ../../packages/backend && yarn convex deploy --cmd 'cd ../../apps/web && turbo run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL
 ```
 
 There is a vercel.json file in the apps/web directory with this configuration for Vercel.

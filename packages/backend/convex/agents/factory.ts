@@ -1,7 +1,6 @@
 import { Agent } from "@convex-dev/agent";
 import { components } from "../_generated/api";
-import { defaultConfig } from "./config";
-import { areModelsConfigured, languageModel } from "../ai/models";
+import { getDefaultConfig } from "./config";
 import type { Config } from "@convex-dev/agent";
 
 // Agent type definitions
@@ -71,31 +70,32 @@ export class AgentFactory {
    * @returns A configured Agent instance
    */
   static create(type: AgentType, customConfig: Partial<AgentConfig> = {}): Agent {
-    // Check if models are configured
-    if (!areModelsConfigured() || !languageModel) {
-      throw new Error("AI models not configured. Please set OPENAI_API_KEY in your environment.");
-    }
-
     // Get the base configuration for the agent type
     const baseConfig = agentConfigurations[type];
     
     if (!baseConfig) {
-      throw new Error(`Unknown agent type: ${type}`);
+      throw new Error('Unknown agent type provided');
     }
 
+    // Get default configuration (which includes validation)
+    const defaultConfig = getDefaultConfig();
+
     // Merge configurations: default -> type-specific -> custom
-    const finalConfig: AgentConfig = {
+    // getDefaultConfig throws if languageModel is not available, so we know it exists
+    const finalConfig = {
       ...defaultConfig,
       ...baseConfig,
       ...customConfig,
+      name: type, // Add required name field
+      languageModel: defaultConfig.languageModel!, // Non-null assertion safe here
       // Merge tools separately to avoid overwriting
       tools: {
         ...baseConfig.tools,
-        ...customConfig.tools,
+        ...customConfig?.tools,
       },
     };
 
-    // Create and return the agent
+    // Create and return the agent - no type casting needed
     return new Agent(components.agent, finalConfig);
   }
 
@@ -105,15 +105,15 @@ export class AgentFactory {
    * @returns A configured Agent instance
    */
   static createCustom(config: AgentConfig): Agent {
-    // Check if models are configured
-    if (!areModelsConfigured() || !languageModel) {
-      throw new Error("AI models not configured. Please set OPENAI_API_KEY in your environment.");
-    }
+    // Get default configuration (which includes validation)
+    const defaultConfig = getDefaultConfig();
 
     // Merge with defaults
-    const finalConfig: AgentConfig = {
+    const finalConfig = {
       ...defaultConfig,
       ...config,
+      name: config.name || 'custom-agent', // Ensure name is provided
+      languageModel: defaultConfig.languageModel!, // Non-null assertion safe here
     };
 
     return new Agent(components.agent, finalConfig);
