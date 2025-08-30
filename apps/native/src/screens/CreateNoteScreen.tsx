@@ -20,7 +20,7 @@ const { width } = Dimensions.get("window");
 
 export default function CreateNoteScreen({ navigation }) {
   const createNote = useMutation(api.notes.createNote);
-  const aiModelsConfigured = useQuery(api.notes.aiModelsConfigured) ?? true;
+  const aiModelsConfigured = useQuery(api.notes.getAiConfigStatus) ?? true;
 
   const [isAdvancedSummarizationEnabled, setIsAdvancedSummarizationEnabled] =
     useState(false);

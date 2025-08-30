@@ -1,74 +1,42 @@
 /**
  * Example usage of the AI Agent system
- * This file demonstrates how to use the various agents and features
+ * Demonstrates key patterns for using agents in your application
  */
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { AgentFactory } from "./factory";
-import { getNoteSummaryAgent } from "./noteSummary";
-import { noteTools } from "../ai/tools";
+import { AgentFactory, AGENT_TYPES, noteTools } from "./index";
+import type { AgentType } from "./index";
 import { createThread } from "@convex-dev/agent";
 import { components } from "../_generated/api";
 
 /**
- * Example 1: Using the Note Summary Agent directly
+ * Example 1: Basic agent usage with factory
+ * Shows how to create and use different agent types
  */
-export const exampleNoteSummary = action({
-  args: {
-    title: v.string(),
-    content: v.string(),
-  },
-  handler: async (ctx, { title, content }) => {
-    // Get user ID
-    const auth = await ctx.auth.getUserIdentity();
-    const userId = auth?.subject || "demo-user";
-    
-    // Create a thread for the conversation
-    const threadId = await createThread(ctx, components.agent, {
-      userId,
-      title: `Summary: ${title}`,
-    });
-    
-    // Generate summary
-    const prompt = `Summarize this note:\nTitle: ${title}\nContent: ${content}`;
-    const result = await getNoteSummaryAgent().generateText(
-      ctx,
-      { threadId, userId },
-      { prompt }
-    );
-    
-    return {
-      summary: result.text,
-      threadId,
-    };
-  },
-});
-
-/**
- * Example 2: Using the Agent Factory to create different agents
- */
-export const exampleMultipleAgents = action({
+export const basicAgentUsage = action({
   args: {
     text: v.string(),
-    analysisType: v.union(
+    agentType: v.union(
       v.literal("summary"),
+      v.literal("notes"),
+      v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
     ),
   },
-  handler: async (ctx, { text, analysisType }) => {
+  handler: async (ctx, { text, agentType }) => {
     // Get user ID
     const auth = await ctx.auth.getUserIdentity();
     const userId = auth?.subject || "demo-user";
     
-    // Create appropriate agent based on analysis type
-    const agent = AgentFactory.create(analysisType);
+    // Create agent using factory
+    const agent = await AgentFactory.create(agentType as AgentType);
     
-    // Create thread
+    // Create thread for conversation history
     const threadId = await createThread(ctx, components.agent, {
       userId,
-      title: `${analysisType} Analysis`,
+      title: `${agentType} Session`,
     });
     
     // Generate response
@@ -79,17 +47,18 @@ export const exampleMultipleAgents = action({
     );
     
     return {
-      result: result.text,
-      agentType: analysisType,
+      response: result.text,
+      agentType,
       threadId,
     };
   },
 });
 
 /**
- * Example 3: Using an agent with tools
+ * Example 2: Agent with tools
+ * Shows how to create an agent with specific tools
  */
-export const exampleAgentWithTools = action({
+export const agentWithTools = action({
   args: {
     request: v.string(),
   },
@@ -98,11 +67,11 @@ export const exampleAgentWithTools = action({
     const auth = await ctx.auth.getUserIdentity();
     const userId = auth?.subject || "demo-user";
     
-    // Create a general agent with note tools
-    const agentWithTools = AgentFactory.createCustom({
-      name: "Assistant with Tools",
-      instructions: `You are a helpful assistant with access to note management tools.
-        You can search, create, and analyze notes for the user.
+    // Create a custom agent with note management tools
+    const agent = await AgentFactory.createCustom({
+      name: "Notes Assistant",
+      instructions: `You are a helpful assistant specialized in note management.
+        You have access to tools for searching, creating, and analyzing notes.
         Use the appropriate tools to help with the user's request.`,
       tools: noteTools,
     });
@@ -110,11 +79,11 @@ export const exampleAgentWithTools = action({
     // Create thread
     const threadId = await createThread(ctx, components.agent, {
       userId,
-      title: "Tool-enabled Conversation",
+      title: "Notes Management Session",
     });
     
     // Process request with tools
-    const result = await agentWithTools.generateText(
+    const result = await agent.generateText(
       ctx,
       { threadId, userId },
       { prompt: request }
@@ -129,9 +98,10 @@ export const exampleAgentWithTools = action({
 });
 
 /**
- * Example 4: Streaming response
+ * Example 3: Streaming responses
+ * Shows how to stream agent responses for real-time updates
  */
-export const exampleStreaming = action({
+export const streamingExample = action({
   args: {
     prompt: v.string(),
   },
@@ -141,7 +111,7 @@ export const exampleStreaming = action({
     const userId = auth?.subject || "demo-user";
     
     // Create agent
-    const agent = AgentFactory.create("general");
+    const agent = await AgentFactory.create(AGENT_TYPES.SUMMARY);
     
     // Create thread
     const threadId = await createThread(ctx, components.agent, {
@@ -156,8 +126,8 @@ export const exampleStreaming = action({
       { prompt },
       {
         saveStreamDeltas: {
-          chunking: "word",
-          throttleMs: 100,
+          chunking: "word",      // Stream word by word
+          throttleMs: 100,       // Update every 100ms
         },
       }
     );
@@ -173,62 +143,9 @@ export const exampleStreaming = action({
   },
 });
 
-/**
- * Example 5: Chaining multiple agents
- */
-export const exampleAgentChain = action({
-  args: {
-    content: v.string(),
-  },
-  handler: async (ctx, { content }) => {
-    // Get user ID
-    const auth = await ctx.auth.getUserIdentity();
-    const userId = auth?.subject || "demo-user";
-    
-    // Create thread
-    const threadId = await createThread(ctx, components.agent, {
-      userId,
-      title: "Multi-Agent Analysis",
-    });
-    
-    // Step 1: Summarize with summary agent
-    const summaryAgent = AgentFactory.create("summary");
-    const summaryResult = await summaryAgent.generateText(
-      ctx,
-      { threadId, userId },
-      { prompt: `Summarize this content: ${content}` }
-    );
-    
-    // Step 2: Analyze the summary with analysis agent
-    const analysisAgent = AgentFactory.create("analysis");
-    const analysisResult = await analysisAgent.generateText(
-      ctx,
-      { threadId, userId },
-      { prompt: `Analyze this summary and provide insights: ${summaryResult.text}` }
-    );
-    
-    // Step 3: Create action items with general agent
-    const generalAgent = AgentFactory.create("general");
-    const actionResult = await generalAgent.generateText(
-      ctx,
-      { threadId, userId },
-      { prompt: `Based on this analysis, suggest 3 action items: ${analysisResult.text}` }
-    );
-    
-    return {
-      summary: summaryResult.text,
-      analysis: analysisResult.text,
-      actionItems: actionResult.text,
-      threadId,
-    };
-  },
-});
-
 // Export all examples
 export default {
-  exampleNoteSummary,
-  exampleMultipleAgents,
-  exampleAgentWithTools,
-  exampleStreaming,
-  exampleAgentChain,
+  basicAgentUsage,
+  agentWithTools,
+  streamingExample,
 };

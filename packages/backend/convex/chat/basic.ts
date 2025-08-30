@@ -2,9 +2,9 @@ import { action, mutation, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { saveMessage } from "@convex-dev/agent";
 import { components, internal } from "../_generated/api";
-import { getUserId } from "../notes";
-import { getNoteSummaryAgent } from "../agents/noteSummary";
-import { AgentFactory } from "../agents/factory";
+import { requireAuth } from "../lib/security";
+import { AgentFactory, AGENT_TYPES } from "../agents";
+import type { AgentType } from "../agents";
 
 // Send a message and generate a response (recommended async approach)
 export const sendMessage = mutation({
@@ -13,17 +13,14 @@ export const sendMessage = mutation({
     prompt: v.string(),
     agentType: v.optional(v.union(
       v.literal("summary"),
-      v.literal("general"),
+      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
     )),
   },
-  handler: async (ctx, { threadId, prompt, agentType = "general" }) => {
-    const userId = await getUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+  handler: async (ctx, { threadId, prompt, agentType = "summary" }) => {
+    const userId = await requireAuth(ctx);
 
     // Save the user message
     const { messageId } = await saveMessage(ctx, components.agent, {
@@ -52,7 +49,7 @@ export const generateResponse: ReturnType<typeof internalAction> = internalActio
     promptMessageId: v.string(),
     agentType: v.union(
       v.literal("summary"),
-      v.literal("general"),
+      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
@@ -61,7 +58,7 @@ export const generateResponse: ReturnType<typeof internalAction> = internalActio
   },
   handler: async (ctx, { threadId, promptMessageId, agentType, userId }) => {
     // Create the appropriate agent using the factory
-    const agent = AgentFactory.create(agentType);
+    const agent = await AgentFactory.create(agentType as AgentType);
     
     // Generate the response
     const result = await agent.generateText(
@@ -81,13 +78,13 @@ export const generateTextDirect = action({
     prompt: v.string(),
     agentType: v.optional(v.union(
       v.literal("summary"),
-      v.literal("general"),
+      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
     )),
   },
-  handler: async (ctx, { threadId, prompt, agentType = "general" }) => {
+  handler: async (ctx, { threadId, prompt, agentType = "summary" }) => {
     // Get user ID from auth
     const auth = await ctx.auth.getUserIdentity();
     const userId = auth?.subject;
@@ -97,7 +94,7 @@ export const generateTextDirect = action({
     }
 
     // Create the appropriate agent
-    const agent = AgentFactory.create(agentType);
+    const agent = await AgentFactory.create(agentType as AgentType);
     
     // Generate text directly
     const result = await agent.generateText(
@@ -134,8 +131,9 @@ Title: ${noteTitle}
 Content:
 ${noteContent}`;
 
-    // Use the note summary agent
-    const result = await getNoteSummaryAgent().generateText(
+    // Use the summary agent from factory
+    const summaryAgent = await AgentFactory.create(AGENT_TYPES.SUMMARY);
+    const result = await summaryAgent.generateText(
       ctx,
       { threadId, userId },
       { prompt }

@@ -1,4 +1,4 @@
-import { getChatModel, getEmbeddingModel } from "../ai/models";
+import { getChatModel, getEmbeddingModel } from "../../ai/models";
 import type { Config } from "@convex-dev/agent";
 
 // Lazy initialization function to get default config
@@ -20,7 +20,7 @@ export const getDefaultConfig = (): Config => {
     // Context configuration for message history and search
     contextOptions: {
       excludeToolMessages: true,
-      recentMessages: 100,
+      recentMessages: 20,  // Reduced from 100 to prevent token limit issues
       searchOptions: {
         limit: 10,
         textSearch: false,
@@ -39,14 +39,20 @@ export const getDefaultConfig = (): Config => {
     // Usage tracking handler for production monitoring
     usageHandler: async (_ctx, args) => {
       const { usage, model, provider, agentName, threadId, userId } = args;
-      // Production: Consider sending to analytics service or saving to database
+      
+      // Hash user ID for privacy
+      const hashUserId = (id: string) => {
+        // Simple hash for logging - in production use proper hashing
+        return `user_${id.substring(0, 8)}***`;
+      };
+      
       if (process.env.NODE_ENV === 'development') {
         // eslint-disable-next-line no-console
         console.log(`[Agent Usage] ${agentName}:`, {
           model,
           provider,
-          threadId,
-          userId,
+          threadId: threadId ? `thread_${threadId.substring(0, 8)}***` : 'no-thread',
+          userHash: userId ? hashUserId(userId) : 'anonymous',
           tokens: usage.totalTokens,
         });
       }
@@ -54,12 +60,3 @@ export const getDefaultConfig = (): Config => {
   };
 };
 
-// Cached version to avoid repeated initialization
-let _defaultConfig: Config | null = null;
-
-export const getDefaultConfigCached = (): Config => {
-  if (!_defaultConfig) {
-    _defaultConfig = getDefaultConfig();
-  }
-  return _defaultConfig;
-};

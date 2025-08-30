@@ -2,9 +2,9 @@ import { action, mutation, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { saveMessage } from "@convex-dev/agent";
 import { components, internal } from "../_generated/api";
-import { getUserId } from "../notes";
-import { getNoteSummaryAgent } from "../agents/noteSummary";
-import { AgentFactory } from "../agents/factory";
+import { requireAuth } from "../lib/security";
+import { AgentFactory, AGENT_TYPES } from "../agents";
+import type { AgentType } from "../agents";
 
 // Initiate streaming with saved message (recommended)
 export const initiateStreamingMessage = mutation({
@@ -13,17 +13,14 @@ export const initiateStreamingMessage = mutation({
     prompt: v.string(),
     agentType: v.optional(v.union(
       v.literal("summary"),
-      v.literal("general"),
+      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
     )),
   },
-  handler: async (ctx, { threadId, prompt, agentType = "general" }) => {
-    const userId = await getUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+  handler: async (ctx, { threadId, prompt, agentType = "summary" }) => {
+    const userId = await requireAuth(ctx);
 
     // Save the user message
     const { messageId } = await saveMessage(ctx, components.agent, {
@@ -51,7 +48,7 @@ export const streamResponse = internalAction({
     promptMessageId: v.string(),
     agentType: v.union(
       v.literal("summary"),
-      v.literal("general"),
+      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
@@ -60,7 +57,7 @@ export const streamResponse = internalAction({
   },
   handler: async (ctx, { threadId, promptMessageId, agentType, userId }) => {
     // Create the appropriate agent
-    const agent = AgentFactory.create(agentType);
+    const agent = await AgentFactory.create(agentType as AgentType);
     
     // Stream the response with delta saving
     const result = await agent.streamText(
@@ -89,13 +86,13 @@ export const streamTextDirect = action({
     prompt: v.string(),
     agentType: v.optional(v.union(
       v.literal("summary"),
-      v.literal("general"),
+      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
     )),
   },
-  handler: async (ctx, { threadId, prompt, agentType = "general" }) => {
+  handler: async (ctx, { threadId, prompt, agentType = "summary" }) => {
     // Get user ID from auth
     const auth = await ctx.auth.getUserIdentity();
     const userId = auth?.subject;
@@ -105,7 +102,7 @@ export const streamTextDirect = action({
     }
 
     // Create the appropriate agent
-    const agent = AgentFactory.create(agentType);
+    const agent = await AgentFactory.create(agentType as AgentType);
     
     // Stream text with delta saving
     const result = await agent.streamText(
@@ -156,8 +153,9 @@ ${noteContent}
 
 Provide a concise summary focusing on key points and actionable items.`;
 
-    // Stream using the note summary agent
-    const result = await getNoteSummaryAgent().streamText(
+    // Stream using the summary agent from factory
+    const summaryAgent = await AgentFactory.create(AGENT_TYPES.SUMMARY);
+    const result = await summaryAgent.streamText(
       ctx,
       { threadId, userId },
       { prompt },
