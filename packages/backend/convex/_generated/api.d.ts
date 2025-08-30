@@ -8,17 +8,31 @@
  * @module
  */
 
-import type * as agents_config from "../agents/config.js";
+import type * as agents_analysisAgent_config from "../agents/analysisAgent/config.js";
+import type * as agents_analysisAgent_index from "../agents/analysisAgent/index.js";
+import type * as agents_core_config from "../agents/core/config.js";
+import type * as agents_core_factory from "../agents/core/factory.js";
+import type * as agents_core_registry from "../agents/core/registry.js";
+import type * as agents_core_types from "../agents/core/types.js";
+import type * as agents_creativeAgent_config from "../agents/creativeAgent/config.js";
+import type * as agents_creativeAgent_index from "../agents/creativeAgent/index.js";
 import type * as agents_example from "../agents/example.js";
-import type * as agents_factory from "../agents/factory.js";
-import type * as agents_noteSummary from "../agents/noteSummary.js";
+import type * as agents_index from "../agents/index.js";
+import type * as agents_notesAgent_config from "../agents/notesAgent/config.js";
+import type * as agents_notesAgent_index from "../agents/notesAgent/index.js";
+import type * as agents_notesAgent_tools from "../agents/notesAgent/tools.js";
+import type * as agents_researchAgent_config from "../agents/researchAgent/config.js";
+import type * as agents_researchAgent_index from "../agents/researchAgent/index.js";
+import type * as agents_summaryAgent_config from "../agents/summaryAgent/config.js";
+import type * as agents_summaryAgent_index from "../agents/summaryAgent/index.js";
 import type * as ai_models from "../ai/models.js";
-import type * as ai_rag from "../ai/rag.js";
-import type * as ai_tools from "../ai/tools.js";
 import type * as chat_basic from "../chat/basic.js";
 import type * as chat_streaming from "../chat/streaming.js";
+import type * as lib_rateLimit from "../lib/rateLimit.js";
+import type * as lib_security from "../lib/security.js";
 import type * as notes from "../notes.js";
 import type * as threads from "../threads.js";
+import type * as types from "../types.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -36,17 +50,31 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  "agents/config": typeof agents_config;
+  "agents/analysisAgent/config": typeof agents_analysisAgent_config;
+  "agents/analysisAgent/index": typeof agents_analysisAgent_index;
+  "agents/core/config": typeof agents_core_config;
+  "agents/core/factory": typeof agents_core_factory;
+  "agents/core/registry": typeof agents_core_registry;
+  "agents/core/types": typeof agents_core_types;
+  "agents/creativeAgent/config": typeof agents_creativeAgent_config;
+  "agents/creativeAgent/index": typeof agents_creativeAgent_index;
   "agents/example": typeof agents_example;
-  "agents/factory": typeof agents_factory;
-  "agents/noteSummary": typeof agents_noteSummary;
+  "agents/index": typeof agents_index;
+  "agents/notesAgent/config": typeof agents_notesAgent_config;
+  "agents/notesAgent/index": typeof agents_notesAgent_index;
+  "agents/notesAgent/tools": typeof agents_notesAgent_tools;
+  "agents/researchAgent/config": typeof agents_researchAgent_config;
+  "agents/researchAgent/index": typeof agents_researchAgent_index;
+  "agents/summaryAgent/config": typeof agents_summaryAgent_config;
+  "agents/summaryAgent/index": typeof agents_summaryAgent_index;
   "ai/models": typeof ai_models;
-  "ai/rag": typeof ai_rag;
-  "ai/tools": typeof ai_tools;
   "chat/basic": typeof chat_basic;
   "chat/streaming": typeof chat_streaming;
+  "lib/rateLimit": typeof lib_rateLimit;
+  "lib/security": typeof lib_security;
   notes: typeof notes;
   threads: typeof threads;
+  types: typeof types;
   utils: typeof utils;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

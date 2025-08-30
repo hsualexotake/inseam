@@ -16,7 +16,7 @@ export default function CreateNote() {
   const cancelButtonRef = useRef(null);
 
   const createNote = useMutation(api.notes.createNote);
-  const aiModelsConfigured = useQuery(api.notes.aiModelsConfigured) ?? true;
+  const aiModelsConfigured = useQuery(api.notes.getAiConfigStatus) ?? true;
 
   const createUserNote = async () => {
     try {
