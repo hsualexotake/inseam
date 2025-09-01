@@ -7,7 +7,10 @@
     "setup": "convex dev --until-success",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "playground:apikey": "convex run --component agent apiKeys:issue '{name:\"playground\"}'",
+    "playground:local": "npx @convex-dev/agent-playground",
+    "playground:help": "echo 'Step 1: Generate API key with yarn playground:apikey\\nStep 2: Run yarn playground:local or visit https://get-convex.github.io/agent/\\nStep 3: Enter your Convex URL and API key'"
   },
   "author": "",
   "license": "ISC",

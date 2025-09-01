@@ -62,7 +62,7 @@ export default function CreateNote() {
           as="div"
           className="relative z-10"
           initialFocus={cancelButtonRef}
-          onClose={setOpen}
+          onClose={() => setOpen(false)}
         >
           <Transition.Child
             as={Fragment}
