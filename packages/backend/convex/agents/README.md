@@ -4,6 +4,7 @@
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
+- [Playground](#playground)
 - [Creating New Agents](#creating-new-agents)
 - [Using Agents](#using-agents)
 - [Tools System](#tools-system)
@@ -80,6 +81,72 @@ const result = await summaryAgent.generateText(
 | `research` | Research and explore topics | 0.7 | None |
 | `analysis` | Analyze data and patterns | 0.4 | None |
 | `creative` | Creative writing and ideation | 0.8 | None |
+
+## Playground
+
+### Interactive Agent Testing & Debugging
+
+The Playground provides a comprehensive UI for testing, debugging, and developing with your agents. It allows you to inspect threads, messages, tool calls, and experiment with different prompts and settings.
+
+### Playground Setup
+
+#### 1. Generate an API Key
+
+From the `packages/backend` directory:
+```bash
+# Using yarn (recommended for this monorepo)
+yarn playground:apikey
+
+# Or using npx directly
+npx convex run --component agent apiKeys:issue '{name:"playground"}'
+```
+
+Save the generated API key - you'll need it to access the playground.
+
+#### 2. Access the Playground
+
+**Option A: Use the Hosted Version**
+1. Visit https://get-convex.github.io/agent/
+2. Enter your Convex deployment URL (found in `.env.local`)
+3. Enter your API key
+4. Start testing your agents!
+
+**Option B: Run Locally**
+```bash
+# From packages/backend directory
+yarn playground:local
+
+# The playground will use VITE_CONVEX_URL from .env.local
+```
+
+#### 3. Available Scripts
+
+```bash
+# Show playground help/instructions
+yarn playground:help
+
+# Generate a new API key
+yarn playground:apikey
+
+# Run playground locally
+yarn playground:local
+```
+
+### Playground Features
+
+- **User & Thread Management**: Browse users and their conversation threads
+- **Message Inspection**: View detailed message history with metadata
+- **Tool Call Details**: Inspect when and how tools are being used
+- **Context Experimentation**: Adjust context options and see results
+- **Live Testing**: Send messages and see responses in real-time
+- **Agent Selection**: Test all configured agents (summary, notes, research, analysis, creative)
+
+### Security Notes
+
+- API keys are required for secure communication
+- Keys can be revoked and reissued by using the same name
+- Multiple keys can be generated with different names
+- Never commit API keys to version control
 
 ## Creating New Agents
 

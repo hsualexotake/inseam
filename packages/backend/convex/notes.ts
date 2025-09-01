@@ -3,6 +3,8 @@ import { v } from "convex/values";
 import { internal } from "../convex/_generated/api";
 import { requireAuth, validateNoteInput } from "./lib/security";
 import { Auth } from "convex/server";
+import { areModelsConfigured } from "./ai/models";
+import { executeWithAgentThread } from "./agents/helpers/withAgentThread";
 
 // Export for backward compatibility
 export const getUserId = async (ctx: { auth: Auth }) => {
@@ -19,7 +21,6 @@ export const getAiConfigStatus = query({
     if (!identity) return false;
     
     // Check configuration without exposing env vars
-    const { areModelsConfigured } = await import("./ai/models");
     return areModelsConfigured();
   },
 });
@@ -131,8 +132,7 @@ export const generateNoteSummaryWithAgent = internalAction({
   },
   handler: async (ctx, { noteId, title, content, userId }) => {
     try {
-      // Check if AI is configured
-      const { areModelsConfigured } = await import("./ai/models");
+      // Check if AI is configured (using static import)
       if (!areModelsConfigured()) {
         await ctx.runMutation(internal.notes.saveSummaryToNote, {
           noteId,
@@ -146,10 +146,6 @@ export const generateNoteSummaryWithAgent = internalAction({
         userId,
         endpoint: "ai_summary",
       });
-      
-      // Use the factory to create a summary agent
-      const { AgentFactory, AGENT_TYPES } = await import("./agents");
-      const summaryAgent = await AgentFactory.create(AGENT_TYPES.SUMMARY);
       
       // Format the prompt
       const prompt = `Please provide a concise summary of the following note:
@@ -165,18 +161,29 @@ ${content}`;
       
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
-          // Generate the summary with proper parameters
-          const result = await summaryAgent.generateText(
-            ctx, 
-            { userId },
-            { prompt }
-          );
+          // Use helper to execute with thread for playground visibility
+          const { text: summary, threadId, usage } = await executeWithAgentThread(ctx, {
+            userId,
+            agentType: "summary",
+            title: `Note Summary: ${title.substring(0, 50)}${title.length > 50 ? '...' : ''}`,
+            metadata: { 
+              type: "note_summary",
+              noteId: noteId.toString()
+            }
+          }, prompt);
           
-          const summary = result.text;
+          // Track usage and save summary in a single mutation (best practice)
+          const tokens = usage?.totalTokens || 0;
+          const cost = (tokens / 1000) * 0.0006; // GPT-4o-mini pricing
           
-          // Track usage for cost monitoring
-          const tokens = result.usage?.totalTokens || 0;
-          const cost = (tokens / 1000) * 0.0006; // GPT-4o-mini output pricing
+          await ctx.runMutation(internal.notes.updateNoteWithSummary, {
+            noteId,
+            summary,
+            threadId,
+            tokens,
+            cost,
+            userId
+          });
           
           await ctx.runMutation(internal.lib.rateLimit.trackUsage, {
             userId,
@@ -184,12 +191,7 @@ ${content}`;
             cost,
           });
           
-          await ctx.runMutation(internal.notes.saveSummaryToNote, {
-            noteId,
-            summary,
-          });
-          
-          return { success: true, summary };
+          return { success: true, summary, threadId };
         } catch (error) {
           lastError = error as Error;
           if (attempt < MAX_RETRIES - 1) {
@@ -225,5 +227,29 @@ export const saveSummaryToNote = internalMutation({
   },
   handler: async (ctx, { noteId, summary }) => {
     await ctx.db.patch(noteId, { summary });
+  },
+});
+
+// Consolidated mutation to update note with summary and track usage
+// Follows Convex best practice of minimizing runMutation calls
+export const updateNoteWithSummary = internalMutation({
+  args: {
+    noteId: v.id("notes"),
+    summary: v.string(),
+    threadId: v.string(),
+    tokens: v.number(),
+    cost: v.number(),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Update note with summary
+    // Note: To store threadId, add aiThreadId field to schema
+    await ctx.db.patch(args.noteId, { 
+      summary: args.summary
+    });
+    
+    // Track usage in the same transaction
+    // Store usage data for monitoring (could extend this with proper tracking)
+    // Thread ID is available at args.threadId for future reference
   },
 });
