@@ -97,8 +97,8 @@ From the `packages/backend` directory:
 # Using yarn (recommended for this monorepo)
 yarn playground:apikey
 
-# Or using npx directly
-npx convex run --component agent apiKeys:issue '{name:"playground"}'
+# Or using yarn convex directly
+yarn convex run --component agent apiKeys:issue '{name:"playground"}'
 ```
 
 Save the generated API key - you'll need it to access the playground.
