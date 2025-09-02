@@ -57,9 +57,13 @@ jobs:
         run: yarn lint
         continue-on-error: true  # Don't fail the build on lint errors for now
         
+      - name: Run Tests
+        run: yarn test
+        continue-on-error: true  # Don't fail the build on test failures for now
+        
       - name: Report Status
         if: always()
         run: |
           echo "✅ CI checks completed"
-          echo "Note: Type and lint errors are currently non-blocking"
+          echo "Note: Type, lint, and test errors are currently non-blocking"
           echo "Consider removing 'continue-on-error' once all issues are fixed"

@@ -25,6 +25,14 @@
     },
     "clean": {
       "cache": false
+    },
+    "test": {
+      "outputs": ["coverage/**"],
+      "dependsOn": ["^test"]
+    },
+    "test:coverage": {
+      "outputs": ["coverage/**"],
+      "dependsOn": ["^test:coverage"]
     }
   }
 }
