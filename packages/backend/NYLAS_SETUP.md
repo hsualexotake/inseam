@@ -155,7 +155,7 @@ const summaries = await convex.query(api.emails.getEmailSummaries, {
 2. Connect a test email account
 3. Run email summarization:
    ```bash
-   npx convex run emails:summarizeInbox --userId "test-user-id"
+   yarn convex run emails:summarizeInbox --userId "test-user-id"
    ```
 
 ## Production Checklist
