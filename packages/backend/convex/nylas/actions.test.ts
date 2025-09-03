@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import { convexTest } from "convex-test";
-import { api, internal } from "../../_generated/api";
-import schema from "../../schema";
-import { modules } from "../../test.setup";
-import { setupNodeEnvironment, setupTestEnvironment } from "./testUtils";
+import { api, internal } from "../_generated/api";
+import schema from "../schema";
+import { modules } from "../test.setup";
+import { setupNodeEnvironment, setupTestEnvironment } from "./testUtils.test";
 
 describe("Nylas Actions", () => {
   let t: ReturnType<typeof convexTest>;
@@ -297,7 +297,7 @@ describe("Nylas Actions", () => {
 
       // Some should fail due to rate limiting
       const results = await Promise.allSettled(promises);
-      const rejected = results.filter(r => r.status === "rejected");
+      const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
       expect(rejected.length).toBeGreaterThan(0);
     });
   });
@@ -525,7 +525,7 @@ describe("Nylas Actions", () => {
       }
 
       const results = await Promise.all(promises);
-      const states = results.map(r => {
+      const states = results.map((r: { authUrl: string }) => {
         const url = new URL(r.authUrl);
         return url.searchParams.get("state");
       });

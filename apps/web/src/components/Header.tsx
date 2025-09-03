@@ -57,6 +57,14 @@ export default function Header() {
                 )}
                 {user ? (
                   <div className="hidden sm:flex absolute inset-y-0 right-0 gap-6 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                    <Link href="/dashboard">
+                      <button
+                        type="button"
+                        className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-[22px] py-[11px] button"
+                      >
+                        Dashboard
+                      </button>
+                    </Link>
                     <Link href="/emailsummary">
                       <button
                         type="button"
@@ -127,6 +135,12 @@ export default function Header() {
               <div className="flex gap-6 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                 {user ? (
                   <>
+                    <Link
+                      href="/dashboard"
+                      className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-5 py-1.5 button"
+                    >
+                      Dashboard
+                    </Link>
                     <Link
                       href="/emailsummary"
                       className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-5 py-1.5 button"

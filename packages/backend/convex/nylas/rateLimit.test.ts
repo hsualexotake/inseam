@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
-import { internal } from "../../_generated/api";
-import schema from "../../schema";
-import { modules } from "../../test.setup";
+import { internal } from "../_generated/api";
+import schema from "../schema";
+import { modules } from "../test.setup";
 
 describe("Rate Limiting", () => {
   let t: ReturnType<typeof convexTest>;
@@ -487,7 +487,7 @@ describe("Rate Limiting", () => {
       const results = await Promise.all(operations);
 
       // All should succeed (window was expired)
-      expect(results.every(r => r === true)).toBe(true);
+      expect(results.every((r: boolean) => r === true)).toBe(true);
 
       // Final count should be 5
       const finalLimit = await t.run(async (ctx) => {

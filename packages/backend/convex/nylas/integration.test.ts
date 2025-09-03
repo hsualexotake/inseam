@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import { convexTest } from "convex-test";
-import { api, internal } from "../../_generated/api";
-import schema from "../../schema";
-import { modules } from "../../test.setup";
+import { api, internal } from "../_generated/api";
+import schema from "../schema";
+import { modules } from "../test.setup";
 import { 
   setupNodeEnvironment, 
   setupTestEnvironment
-} from "./testUtils";
+} from "./testUtils.test";
 
 /**
  * Integration Tests for Nylas Email Integration
@@ -443,11 +443,11 @@ describe.skip("Nylas Integration Tests", () => {
       }
 
       const results = await Promise.all(promises);
-      const errors = results.filter(r => 'error' in r);
+      const errors = results.filter((r): r is { error: string } => 'error' in r);
 
       // Some requests should be rate limited
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors.some(e => e.error.includes("Rate limit"))).toBe(true);
+      expect(errors.some((e: { error: string }) => e.error.includes("Rate limit"))).toBe(true);
     });
 
     it("should handle concurrent OAuth initiations for same user", async () => {
@@ -468,7 +468,7 @@ describe.skip("Nylas Integration Tests", () => {
       const results = await Promise.all(promises);
 
       // All should succeed with different states
-      const states = results.map(r => {
+      const states = results.map((r: { authUrl: string }) => {
         const url = new URL(r.authUrl);
         return url.searchParams.get("state");
       });
