@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
-import { internal } from "../../_generated/api";
-import schema from "../../schema";
-import { modules } from "../../test.setup";
+import { internal } from "../_generated/api";
+import schema from "../schema";
+import { modules } from "../test.setup";
 
 describe("Nylas Internal Functions", () => {
   let t: ReturnType<typeof convexTest>;
@@ -525,7 +525,7 @@ describe("Nylas Internal Functions", () => {
       const results = await Promise.all(cleanupPromises);
       
       // Total cleaned should be 20 (across all cleanup runs)
-      const totalCleaned = results.reduce((sum, r) => sum + r.cleaned, 0);
+      const totalCleaned = results.reduce((sum: number, r: { cleaned: number }) => sum + r.cleaned, 0);
       expect(totalCleaned).toBe(20);
 
       // No expired states should remain

@@ -6,7 +6,7 @@ import {
   isValidEmail,
   formatDate,
   cleanEmailBody,
-} from "../utils";
+} from "./utils";
 
 describe("Utils Functions", () => {
   describe("isValidRedirectUri", () => {

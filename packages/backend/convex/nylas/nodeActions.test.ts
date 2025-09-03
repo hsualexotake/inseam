@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
 import { convexTest } from "convex-test";
-import { internal } from "../../_generated/api";
-import schema from "../../schema";
-import { modules } from "../../test.setup";
+import { internal } from "../_generated/api";
+import schema from "../schema";
+import { modules } from "../test.setup";
 import { 
   setupNodeEnvironment, 
   setupTestEnvironment
-} from "./testUtils";
+} from "./testUtils.test";
 
 describe("Nylas Node Actions", () => {
   let t: ReturnType<typeof convexTest>;
