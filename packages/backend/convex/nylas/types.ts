@@ -97,6 +97,8 @@ export interface NylasTokenResponse {
   refresh_token?: string;
   expires_in?: number;
   token_type: string;
+  id_token?: string;
+  email: string;
 }
 
 /**

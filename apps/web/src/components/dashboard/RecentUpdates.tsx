@@ -1,6 +1,8 @@
 "use client";
 
-import { Bell, Package, Truck, CheckCircle, AlertCircle } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@packages/backend/convex/_generated/api";
+import { Bell, Package, Truck, CheckCircle, AlertCircle, Mail } from "lucide-react";
 
 interface Update {
   id: string;
@@ -13,7 +15,81 @@ interface Update {
 }
 
 export default function RecentUpdates() {
-  const updates: Update[] = [
+  // Fetch update logs from database
+  const updateLogs = useQuery(api.tracking.getSKUUpdateHistory, { limit: 10 });
+  const skus = useQuery(api.tracking.getAllSKUs, { limit: 50 });
+  
+  // Helper function to map update types to UI format
+  const mapUpdateType = (field: string): Update["type"] => {
+    if (field === "status" || field === "trackingNumber") return "shipment";
+    if (field === "deliveryDate") return "delivery";
+    if (field.includes("delay")) return "alert";
+    return "info";
+  };
+  
+  // Helper function to get icon and color based on type
+  const getUpdateIcon = (type: string, status?: string) => {
+    if (status === "delivered") return { icon: CheckCircle, color: "text-green-600 bg-green-50" };
+    if (status === "delayed") return { icon: AlertCircle, color: "text-red-600 bg-red-50" };
+    if (status === "shipped" || status === "in_transit") return { icon: Truck, color: "text-blue-600 bg-blue-50" };
+    if (type.includes("email")) return { icon: Mail, color: "text-purple-600 bg-purple-50" };
+    return { icon: Package, color: "text-gray-600 bg-gray-50" };
+  };
+  
+  // Helper function to format time ago
+  const formatTimeAgo = (timestamp: number) => {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    return "just now";
+  };
+  
+  // Transform database logs to UI format
+  const updates: Update[] = updateLogs?.map((log: any, index) => {
+    // The log now has: field, oldValue, newValue, timestamp, skuCode (added by getSKUUpdateHistory)
+    const sku = skus?.find(s => s.skuCode === log.skuCode);
+    const { icon, color } = getUpdateIcon(log.field, log.newValue);
+    
+    let title = "SKU Update";
+    let description = "Update recorded";
+    
+    if (sku) {
+      if (log.field === "status") {
+        title = `${sku.skuCode} Status Update`;
+        description = `Status changed from ${log.oldValue || 'unknown'} to ${log.newValue}${log.sourceEmailId ? " (from email)" : ""}`;
+      } else if (log.field === "trackingNumber") {
+        title = `Tracking Added: ${sku.skuCode}`;
+        description = `Tracking number ${log.newValue} added`;
+      } else if (log.field === "deliveryDate") {
+        title = `Delivery Update: ${sku.skuCode}`;
+        description = `Delivery date changed to ${log.newValue}`;
+      } else if (log.field === "quantity") {
+        title = `Quantity Update: ${sku.skuCode}`;
+        description = `Quantity changed from ${log.oldValue || '0'} to ${log.newValue}`;
+      } else {
+        title = `${sku.skuCode} ${log.field} Update`;
+        description = `${log.field} changed to ${log.newValue}`;
+      }
+    }
+    
+    return {
+      id: `update-${index}-${log.timestamp}`,
+      type: mapUpdateType(log.field),
+      title,
+      description,
+      timestamp: formatTimeAgo(log.timestamp),
+      icon,
+      iconColor: color,
+    };
+  }) || [];
+  
+  // If no database updates, show default data
+  const defaultUpdates: Update[] = [
     {
       id: "1",
       type: "shipment",
@@ -60,6 +136,8 @@ export default function RecentUpdates() {
       iconColor: "text-orange-600 bg-orange-50",
     },
   ];
+  
+  const displayUpdates = updates.length > 0 ? updates : defaultUpdates;
 
   return (
     <div>
@@ -71,7 +149,7 @@ export default function RecentUpdates() {
       </div>
 
       <div className="space-y-4">
-        {updates.map((update) => {
+        {displayUpdates.slice(0, 5).map((update) => {
           const Icon = update.icon;
           
           return (

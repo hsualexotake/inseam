@@ -29,7 +29,7 @@ import {
   getAllowedRedirectDomains,
   ErrorMessages
 } from "./config";
-import { getAuthenticatedUserId } from "./auth";
+import { requireAuth } from "../helpers/auth";
 
 /**
  * Fetch recent emails from user's inbox
@@ -41,7 +41,7 @@ export const fetchRecentEmails = action({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, { limit = 5, offset = 0 }): Promise<EmailFetchResult> => {
-    const userId = await getAuthenticatedUserId(ctx.auth);
+    const userId = await requireAuth(ctx);
     
     // Validate parameters
     const validatedLimit = Math.min(Math.max(1, limit), 100);
@@ -111,7 +111,7 @@ export const initiateNylasAuth = action({
     )),
   },
   handler: async (ctx, { redirectUri, provider }) => {
-    const userId = await getAuthenticatedUserId(ctx.auth);
+    const userId = await requireAuth(ctx);
     
     // Validate redirect URI for security
     const allowedDomains = getAllowedRedirectDomains();
@@ -121,7 +121,7 @@ export const initiateNylasAuth = action({
     }
     
     if (!NYLAS_CLIENT_ID) {
-      throw new Error("NYLAS_CLIENT_ID not configured");
+      throw new Error("Server configuration error");
     }
     
     // Generate secure state for CSRF protection using Node.js crypto
@@ -193,18 +193,34 @@ export const handleNylasCallback = action({
         { code, redirectUri: storedState.redirectUri }
       );
       
-      // Get grant information
-      const grantData: Pick<NylasGrantInfo, 'email' | 'provider'> = await ctx.runAction(
-        internal.nylas.nodeActions.fetchGrantInfo,
-        { grantId: tokenData.grant_id }
-      );
+      // Validate we got an email from the token exchange
+      if (!tokenData.email) {
+        throw new Error("No email address returned from OAuth provider");
+      }
+      
+      // Get grant information for provider details (optional, with fallback)
+      let provider = "unknown";
+      try {
+        const grantData: Pick<NylasGrantInfo, 'email' | 'provider'> = await ctx.runAction(
+          internal.nylas.nodeActions.fetchGrantInfo,
+          { grantId: tokenData.grant_id }
+        );
+        provider = grantData.provider || "unknown";
+      } catch {
+        // Failed to fetch grant info - infer provider from email domain as fallback
+        if (tokenData.email.includes("@gmail.com") || tokenData.email.includes("@googlemail.com")) {
+          provider = "google";
+        } else if (tokenData.email.includes("@outlook.com") || tokenData.email.includes("@hotmail.com")) {
+          provider = "microsoft";
+        }
+      }
       
       // Store grant in database (only grant ID needed with API key approach)
       await ctx.runMutation(internal.nylas.internal.storeGrant, {
         userId,
         grantId: tokenData.grant_id,
-        email: grantData.email,
-        provider: grantData.provider,
+        email: tokenData.email,
+        provider,
       });
       
       // Delete the used OAuth state for security
@@ -215,11 +231,13 @@ export const handleNylasCallback = action({
       
       return {
         success: true,
-        email: grantData.email,
-        provider: grantData.provider,
+        email: tokenData.email,
+        provider,
       };
     } catch (error) {
-      throw new Error(sanitizeErrorMessage(error));
+      // Always sanitize errors before rethrowing
+      const safeError = sanitizeErrorMessage(error);
+      throw new Error(safeError);
     }
   },
 });
@@ -231,7 +249,7 @@ export const handleNylasCallback = action({
 export const disconnectEmail = action({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthenticatedUserId(ctx.auth);
+    const userId = await requireAuth(ctx);
     
     // Get the grant before removing it
     const grant = await ctx.runQuery(internal.nylas.internal.getGrant, { userId });

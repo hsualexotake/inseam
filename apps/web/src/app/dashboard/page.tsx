@@ -1,9 +1,8 @@
 import MinimalSidebar from "@/components/dashboard/MinimalSidebar";
 import ModernHeader from "@/components/dashboard/ModernHeader";
 import MetricCards from "@/components/dashboard/MetricCards";
-import ModernEmailSummary from "@/components/dashboard/ModernEmailSummary";
-import RecentUpdates from "@/components/dashboard/RecentUpdates";
-import SKUTrackingTable from "@/components/dashboard/SKUTrackingTable";
+import UnifiedUpdates from "@/components/dashboard/UnifiedUpdates";
+import SimpleSKUTracking from "@/components/dashboard/SimpleSKUTracking";
 
 export default function DashboardPage() {
   return (
@@ -15,12 +14,11 @@ export default function DashboardPage() {
           <ModernHeader />
           <MetricCards />
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <ModernEmailSummary />
-            <RecentUpdates />
+          <div className="mb-8">
+            <UnifiedUpdates />
           </div>
           
-          <SKUTrackingTable />
+          <SimpleSKUTracking />
         </div>
       </main>
     </div>

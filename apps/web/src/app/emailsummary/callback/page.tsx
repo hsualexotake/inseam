@@ -26,9 +26,12 @@ function CallbackContent() {
     if (error) {
       setError(`Authentication failed: ${error}`);
       setStatus('');
+      // Get return URL for redirect
+      const returnUrl = sessionStorage.getItem('nylas_return_url');
+      sessionStorage.removeItem('nylas_return_url');
       // Redirect back to main page after delay
       setTimeout(() => {
-        router.push('/emailsummary');
+        router.push(returnUrl || '/emailsummary');
       }, 3000);
       return;
     }
@@ -36,8 +39,10 @@ function CallbackContent() {
     if (!code || !state) {
       setError('Invalid callback parameters');
       setStatus('');
+      const returnUrl = sessionStorage.getItem('nylas_return_url');
+      sessionStorage.removeItem('nylas_return_url');
       setTimeout(() => {
-        router.push('/emailsummary');
+        router.push(returnUrl || '/emailsummary');
       }, 3000);
       return;
     }
@@ -54,9 +59,13 @@ function CallbackContent() {
         setStatus(`Successfully connected ${result.email}!`);
         setError(null);
         
-        // Redirect to main page after success
+        // Check for return URL in sessionStorage
+        const returnUrl = sessionStorage.getItem('nylas_return_url');
+        sessionStorage.removeItem('nylas_return_url');
+        
+        // Redirect to return URL or default to email summary
         setTimeout(() => {
-          router.push('/emailsummary');
+          router.push(returnUrl || '/emailsummary');
         }, 1500);
       }
     } catch (err: any) {
@@ -77,9 +86,13 @@ function CallbackContent() {
       setError(err.message || 'Failed to connect email account');
       setStatus('');
       
+      // Check for return URL even on error
+      const returnUrl = sessionStorage.getItem('nylas_return_url');
+      sessionStorage.removeItem('nylas_return_url');
+      
       // Redirect back after error
       setTimeout(() => {
-        router.push('/emailsummary');
+        router.push(returnUrl || '/emailsummary');
       }, 3000);
     }
   };

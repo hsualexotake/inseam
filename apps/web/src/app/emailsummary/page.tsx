@@ -18,7 +18,7 @@ export default function EmailSummaryPage() {
   const [summary, setSummary] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
 
-  const connectionStatusData = useQuery(api.nylas.queries.getConnectionStatus);
+  const connectionStatusData = useQuery(api.emails.getEmailConnection);
   const fetchRecentEmails = useAction(api.nylas.actions.fetchRecentEmails);
   const summarizeInbox = useAction(api.emails.summarizeInbox);
   const disconnectEmail = useAction(api.nylas.actions.disconnectEmail);
@@ -54,16 +54,28 @@ export default function EmailSummaryPage() {
   // Update connection status from query
   useEffect(() => {
     if (connectionStatusData) {
-      setConnectionStatus(connectionStatusData);
+      // Transform to ConnectionStatus format
+      setConnectionStatus({
+        connected: true,
+        email: connectionStatusData.email,
+        provider: connectionStatusData.provider,
+        message: 'Email connected'
+      });
       
       // If connected and we haven't fetched emails yet
-      if (connectionStatusData.connected && emails.length === 0) {
+      if (emails.length === 0) {
         // Wrap in error handling to prevent unhandled promise rejection
         fetchEmailsAndSummarize().catch(err => {
           console.error('Auto-fetch failed:', err);
           // Error is already handled in fetchEmailsAndSummarize
         });
       }
+    } else if (connectionStatusData === null) {
+      // No connection
+      setConnectionStatus({
+        connected: false,
+        message: 'No email account connected'
+      });
     }
   }, [connectionStatusData, emails.length, fetchEmailsAndSummarize]);
 
@@ -108,7 +120,7 @@ export default function EmailSummaryPage() {
               </p>
             </div>
             
-            {connectionStatus?.connected && (
+            {connectionStatus && connectionStatus.connected && (
               <div className="text-right">
                 <p className="text-sm text-gray-500">Connected account:</p>
                 <p className="font-medium text-gray-900">{connectionStatus.email}</p>
