@@ -15,7 +15,7 @@ import type { NylasTokenResponse, NylasGrantInfo } from "./types";
 import { 
   NYLAS_API_URI, 
   NYLAS_CLIENT_ID, 
-  NYLAS_API_KEY,
+  getNylasApiKey,
   validateNylasCredentials,
   getNylasApiHeaders,
   generateRequestId
@@ -46,7 +46,11 @@ export const exchangeCodeForToken = internalAction({
   handler: async (ctx, { code, redirectUri }): Promise<NylasTokenResponse> => {
     validateNylasCredentials();
     const clientId = NYLAS_CLIENT_ID!;
-    const clientSecret = NYLAS_API_KEY!; // API key serves as client_secret in v3
+    const clientSecret = getNylasApiKey(); // API key serves as client_secret in v3
+    
+    if (!clientSecret) {
+      throw new Error("Server configuration error");
+    }
     
     const body: Record<string, string> = {
       client_id: clientId,
@@ -73,8 +77,19 @@ export const exchangeCodeForToken = internalAction({
       throw new Error(`Failed to exchange code: ${error}`);
     }
     
-    // We only need the grant_id from this response
-    return tokenResponse.json();
+    const data = await tokenResponse.json();
+    
+    // Extract email from the response
+    // Nylas v3 returns the email directly in the token response
+    return {
+      grant_id: data.grant_id,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_in: data.expires_in,
+      token_type: data.token_type,
+      id_token: data.id_token,
+      email: data.email || data.email_address || "", // Some responses use email_address
+    };
   },
 });
 
@@ -86,8 +101,9 @@ export const fetchGrantInfo = internalAction({
     grantId: v.string(),
   },
   handler: async (ctx, { grantId }): Promise<Pick<NylasGrantInfo, 'email' | 'provider'>> => {
-    if (!NYLAS_API_KEY) {
-      throw new Error("NYLAS_API_KEY not configured");
+    const apiKey = getNylasApiKey();
+    if (!apiKey) {
+      throw new Error("Server configuration error");
     }
     
     const response = await fetch(`${NYLAS_API_URI}/grants/${grantId}`, {
@@ -118,8 +134,9 @@ export const nylasApiCall = internalAction({
     body: v.optional(v.any()),
   },
   handler: async (ctx, { endpoint, method = "GET", body }) => {
-    if (!NYLAS_API_KEY) {
-      throw new Error("NYLAS_API_KEY not configured");
+    const apiKey = getNylasApiKey();
+    if (!apiKey) {
+      throw new Error("Server configuration error");
     }
     
     const requestId = generateRequestId();
@@ -130,7 +147,7 @@ export const nylasApiCall = internalAction({
     // Per Nylas v3 docs: Use API key as Bearer token for all API calls
     // Grant ID is included in the URL path (e.g., /grants/{grantId}/messages)
     const headers = {
-      "Authorization": `Bearer ${NYLAS_API_KEY}`,
+      "Authorization": `Bearer ${apiKey}`,
       "Accept": "application/json",
       "Content-Type": "application/json",
       "X-Nylas-Client-Request-Id": requestId,
@@ -144,8 +161,7 @@ export const nylasApiCall = internalAction({
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      
+      // Never log the raw error text as it might contain sensitive data
       // Check for rate limiting
       if (response.status === 429) {
         const retryAfter = response.headers.get("Retry-After");
@@ -157,9 +173,9 @@ export const nylasApiCall = internalAction({
         throw new Error("Authentication failed. Please reconnect your email account.");
       }
       
-      // Log error for debugging
-      // console.error(`Nylas API error: ${response.status} - ${errorText}`);
-      throw new Error(sanitizeErrorMessage(new Error(errorText)));
+      // Sanitize error before throwing
+      const sanitizedError = sanitizeErrorMessage(new Error(`API request failed with status ${response.status}`));
+      throw new Error(sanitizedError);
     }
     
     return response.json();
@@ -175,8 +191,9 @@ export const revokeGrant = internalAction({
     grantId: v.string(),
   },
   handler: async (ctx, { grantId }) => {
-    if (!NYLAS_API_KEY) {
-      throw new Error("NYLAS_API_KEY not configured");
+    const apiKey = getNylasApiKey();
+    if (!apiKey) {
+      throw new Error("Server configuration error");
     }
     
     try {
@@ -191,11 +208,11 @@ export const revokeGrant = internalAction({
         return { success: true, message: "Grant revoked successfully" };
       }
       
-      const errorText = await response.text();
-      console.error(`Failed to revoke grant ${grantId}: ${errorText}`);
+      // Don't log the raw error text as it might contain sensitive data
+      // Silently fail and continue - grant revocation is best effort
       return { success: false, message: "Failed to revoke grant" };
-    } catch (error) {
-      console.error("Error revoking grant:", error);
+    } catch {
+      // Don't log the full error as it might contain sensitive data
       // Don't throw - allow disconnect to proceed even if revocation fails
       return { success: false, message: "Error revoking grant" };
     }

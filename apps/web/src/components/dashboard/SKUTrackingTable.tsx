@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@packages/backend/convex/_generated/api";
 import { Search, Package, Truck, CheckCircle, Clock, AlertCircle, ChevronDown } from "lucide-react";
 import type { Shipment } from "@/types/dashboard";
 
@@ -13,108 +15,55 @@ const statusConfig = {
 };
 
 export default function SKUTrackingTable() {
-  const [shipments, setShipments] = useState<Shipment[]>([]);
   const [filteredShipments, setFilteredShipments] = useState<Shipment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
-
-  // Mock data
-  useEffect(() => {
-    const mockShipments: Shipment[] = [
-      {
-        id: 1,
-        sku_id: 1,
-        tracking_number: "1234567890",
-        supplier: "Innnox",
-        status: "in_transit",
-        quantity: 50,
-        shipped_date: "2025-08-28",
-        expected_delivery: "2025-09-05",
-        actual_delivery: null,
-        notes: "SKU001 shipped, expected to arrive 9/5/25",
-        sku: {
-          id: 1,
-          sku_code: "SS26-DRS-001-BLK-S",
-          product_name: "Summer Midi Dress",
-          category: "Dresses",
-          color: "Black",
-          size: "S",
-          season: "SS26",
-        },
-      },
-      {
-        id: 2,
-        sku_id: 2,
-        tracking_number: null,
-        supplier: "Innnox",
-        status: "pending",
-        quantity: 75,
-        shipped_date: null,
-        expected_delivery: "2025-09-10",
-        actual_delivery: null,
-        notes: "Color change for SKU002 from Navy to Black",
-        sku: {
-          id: 2,
-          sku_code: "SS26-JKT-002-NVY-M",
-          product_name: "Linen Blazer",
-          category: "Jackets",
-          color: "Navy",
-          size: "M",
-          season: "SS26",
-        },
-      },
-      {
-        id: 3,
-        sku_id: 3,
-        tracking_number: "9876543210",
-        supplier: "Innnox",
-        status: "delayed",
-        quantity: 100,
-        shipped_date: "2025-08-20",
-        expected_delivery: "2025-08-27",
-        actual_delivery: null,
-        notes: "Fabric order SS27 delayed by 2 weeks",
-        sku: {
-          id: 3,
-          sku_code: "FW25-PNT-003-GRY-L",
-          product_name: "Wool Trousers",
-          category: "Pants",
-          color: "Grey",
-          size: "L",
-          season: "FW25",
-        },
-      },
-      {
-        id: 4,
-        sku_id: 4,
-        tracking_number: "5555666677",
-        supplier: "Innnox",
-        status: "delivered",
-        quantity: 30,
-        shipped_date: "2025-08-15",
-        expected_delivery: "2025-08-22",
-        actual_delivery: "2025-08-22",
-        notes: "Delivered on time",
-        sku: {
-          id: 4,
-          sku_code: "FW25-SWT-004-BLU-XL",
-          product_name: "Cashmere Sweater",
-          category: "Sweaters",
-          color: "Blue",
-          size: "XL",
-          season: "FW25",
-        },
-      },
-    ];
-    setShipments(mockShipments);
-    setFilteredShipments(mockShipments);
-  }, []);
+  const [isInitializing, setIsInitializing] = useState(false);
+  
+  // Fetch SKUs from database  
+  const skusWithShipments = useQuery(api.tracking.getAllSKUs, { limit: 100 });
+  const initializeSKUs = useMutation(api.tracking.initializeSampleSKUs);
+  
+  // Manual initialization handler
+  const handleInitializeSampleData = async () => {
+    setIsInitializing(true);
+    try {
+      await initializeSKUs({});
+    } catch (error) {
+      console.error("Failed to initialize sample SKUs:", error);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+  
+  // Transform database data to component format
+  const shipments: Shipment[] = skusWithShipments?.map((sku, index) => ({
+    id: index + 1,
+    sku_id: index + 1,
+    tracking_number: sku.trackingNumber || null,
+    supplier: sku.supplier || "Unknown",
+    status: (sku.status || "pending") as any,
+    quantity: sku.quantity || 0,
+    shipped_date: sku.deliveryDate || null,
+    expected_delivery: sku.deliveryDate || null,
+    actual_delivery: sku.status === "delivered" ? (sku.deliveryDate || null) : null,
+    notes: sku.notes || null,
+    sku: {
+      id: index + 1,
+      sku_code: sku.skuCode,
+      product_name: sku.productName,
+      category: sku.category || "Uncategorized",
+      color: sku.color || "N/A",
+      size: sku.size || "N/A",
+      season: sku.season || "N/A",
+    },
+  })) || [];
 
   // Filter shipments
   useEffect(() => {
-    let filtered = shipments;
+    let filtered = shipments || [];
 
     if (searchTerm) {
       filtered = filtered.filter(
@@ -267,11 +216,32 @@ export default function SKUTrackingTable() {
           </tbody>
         </table>
 
-        {filteredShipments.length === 0 && (
+        {skusWithShipments === undefined ? (
           <div className="text-center py-8 text-gray-500">
-            No shipments found matching your criteria.
+            Loading SKU tracking data...
           </div>
-        )}
+        ) : filteredShipments.length === 0 ? (
+          <div className="text-center py-8">
+            {shipments.length === 0 ? (
+              <div className="space-y-4">
+                <p className="text-gray-500">No SKU data available yet.</p>
+                <button
+                  onClick={handleInitializeSampleData}
+                  disabled={isInitializing}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Package className="h-4 w-4" />
+                  {isInitializing ? "Initializing..." : "Load Sample SKUs"}
+                </button>
+                <p className="text-xs text-gray-400">
+                  Or SKUs will be added automatically when you process emails with tracking information.
+                </p>
+              </div>
+            ) : (
+              <p className="text-gray-500">No shipments found matching your criteria.</p>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Update Dialog - Simplified version */}

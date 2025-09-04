@@ -1,6 +1,7 @@
 import { internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { NYLAS_CONFIG, TIME_WINDOWS } from "../constants";
 
 /**
  * Rate limiting utilities for API calls
@@ -10,22 +11,22 @@ import { internal } from "../_generated/api";
 const RATE_LIMITS = {
   // Nylas API limits (per user)
   "nylas.fetchEmails": { 
-    requests: 10, 
-    windowMs: 60 * 1000 // 10 requests per minute
+    requests: NYLAS_CONFIG.RATE_LIMITS.EMAILS_PER_MINUTE, 
+    windowMs: TIME_WINDOWS.MINUTE
   },
   "nylas.auth": { 
-    requests: 5, 
-    windowMs: 10 * 60 * 1000 // 5 auth attempts per 10 minutes
+    requests: NYLAS_CONFIG.RATE_LIMITS.AUTH_PER_10_MINUTES, 
+    windowMs: 10 * TIME_WINDOWS.MINUTE
   },
   // Email summary limits
   "emails.summarize": { 
-    requests: 20, 
-    windowMs: 60 * 60 * 1000 // 20 summaries per hour
+    requests: NYLAS_CONFIG.RATE_LIMITS.SUMMARIES_PER_HOUR, 
+    windowMs: TIME_WINDOWS.HOUR
   },
   // Default for unspecified endpoints
   "default": { 
-    requests: 30, 
-    windowMs: 60 * 1000 // 30 requests per minute
+    requests: NYLAS_CONFIG.RATE_LIMITS.DEFAULT_PER_MINUTE, 
+    windowMs: TIME_WINDOWS.MINUTE
   },
 };
 
@@ -176,12 +177,12 @@ export const cleanupOldRateLimits = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     // Clean up records older than 1 hour
-    const cutoff = now - (60 * 60 * 1000);
+    const cutoff = now - TIME_WINDOWS.HOUR;
     
     const oldRecords = await ctx.db
       .query("rateLimits")
       .filter((q) => q.lt(q.field("windowStart"), cutoff))
-      .collect();
+      .take(100); // Limit to prevent overwhelming cleanup
     
     for (const record of oldRecords) {
       await ctx.db.delete(record._id);

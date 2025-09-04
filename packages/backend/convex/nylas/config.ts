@@ -10,7 +10,30 @@
 export const NYLAS_API_URI = process.env.NYLAS_API_URI || "https://api.us.nylas.com/v3";
 export const NYLAS_CLIENT_ID = process.env.NYLAS_CLIENT_ID;
 // SECURITY: API_KEY should never be exposed to client code
-export const NYLAS_API_KEY = process.env.NYLAS_API_KEY;
+// Only access this in server-side actions with "use node" directive
+const NYLAS_API_KEY_INTERNAL = process.env.NYLAS_API_KEY;
+
+// Export a getter function instead of the raw value for additional safety
+export function getNylasApiKey(): string | undefined {
+  // Comprehensive check for actual browser environment
+  // This distinguishes between real browsers and test environments like edge-runtime
+  const isBrowser = 
+    typeof window !== 'undefined' && 
+    typeof window.document !== 'undefined' &&
+    typeof window.navigator !== 'undefined' &&
+    // Check we're not in a test environment
+    !((global as any).process?.env?.NODE_ENV === 'test') &&
+    // Check we're not in jsdom
+    !(window.navigator?.userAgent?.includes('jsdom')) &&
+    // Check for edge-runtime specific globals
+    typeof (global as any).EdgeRuntime === 'undefined';
+    
+  if (isBrowser) {
+    throw new Error('SECURITY: Attempted to access API key from client side');
+  }
+  
+  return NYLAS_API_KEY_INTERNAL;
+}
 
 // Limits and Constraints
 export const MAX_EMAIL_FETCH_LIMIT = 100;
@@ -65,8 +88,9 @@ export function validatePromptLength(prompt: string): void {
  * @throws Error if credentials are missing
  */
 export function validateNylasCredentials(): void {
-  if (!NYLAS_CLIENT_ID || !NYLAS_API_KEY) {
-    throw new Error("Nylas credentials not configured. Please set NYLAS_CLIENT_ID and NYLAS_API_KEY in environment variables.");
+  if (!NYLAS_CLIENT_ID || !getNylasApiKey()) {
+    // Don't mention specific env var names in error messages
+    throw new Error("Nylas credentials not configured in environment variables.");
   }
 }
 
@@ -84,12 +108,14 @@ export function generateRequestId(): string {
  */
 export function getNylasApiHeaders(requestId?: string): Record<string, string> {
   // Ensure this is only called from server context
-  if (!NYLAS_API_KEY) {
-    throw new Error("NYLAS_API_KEY not configured - this function must only be called from server-side actions");
+  const apiKey = getNylasApiKey();
+  if (!apiKey) {
+    // Generic error message that doesn't reveal configuration details
+    throw new Error("API configuration error - server-side access only");
   }
   
   return {
-    "Authorization": `Bearer ${NYLAS_API_KEY}`,
+    "Authorization": `Bearer ${apiKey}`,
     "Accept": "application/json",
     "Content-Type": "application/json",
     "X-Nylas-Client-Request-Id": requestId || generateRequestId(),

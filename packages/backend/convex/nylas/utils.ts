@@ -39,8 +39,8 @@ export function isValidRedirectUri(uri: string, allowedDomains: string[]): boole
  * This is a critical security function that prevents information disclosure
  */
 export function sanitizeErrorMessage(error: unknown): string {
-  // Always log the full error server-side for debugging (but never expose to client)
-  console.error("Full error details (server-side only):", error);
+  // Never log raw errors as they might contain sensitive data
+  // Use a secure logging mechanism if detailed logging is needed
   
   // Convert error to string safely
   const errorString = error instanceof Error ? error.message : String(error);
@@ -61,6 +61,12 @@ export function sanitizeErrorMessage(error: unknown): string {
     /127\.0\.0\.1/gi,
     /internal/gi,
     /\.local/gi,
+    /nyl_[A-Za-z0-9]+/gi, // Nylas API key pattern
+    /sk_[A-Za-z0-9]+/gi, // Secret key pattern
+    /pk_[A-Za-z0-9]+/gi, // Public key pattern
+    /\bBearer\s+[A-Za-z0-9\-._~+/]+=*/gi, // Bearer token with value
+    /[A-Za-z0-9]{40,}/g, // Long alphanumeric strings (API keys)
+    /https?:\/\/[^\s]*@/gi, // URLs with credentials
   ];
   
   // Check if error contains sensitive information
@@ -110,6 +116,30 @@ export function sanitizeErrorMessage(error: unknown): string {
       return "Invalid or expired state parameter";
     }
     return safeMessage;
+  }
+  
+  // Additional validation: check for any hex strings or base64 that might have been missed
+  const additionalPatterns = [
+    /[A-Za-z0-9]{32,}/g, // Long strings that might be keys
+    /\b\d{4,}\b/g, // Long numbers that might be IDs
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, // UUIDs
+    /\b[A-Za-z0-9_\-]{20,}\b/g, // Generic tokens
+  ];
+  
+  for (const pattern of additionalPatterns) {
+    if (pattern.test(errorString)) {
+      return "An error occurred while processing your request";
+    }
+  }
+  
+  // If error is very long, truncate it (could contain data dumps)
+  if (errorString.length > 200) {
+    return "An error occurred while processing your request";
+  }
+  
+  // Final safety check: if the error contains any JSON-like structures
+  if (errorString.includes('{') && errorString.includes('}')) {
+    return "An error occurred while processing your request";
   }
   
   // Generic error message for all other cases

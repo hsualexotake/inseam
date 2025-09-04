@@ -3,35 +3,64 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAction, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
-import { Mail, RefreshCw, Package, Truck, AlertTriangle, CheckCircle, Clock, Inbox } from "lucide-react";
+import { Mail, RefreshCw, Package, Truck, AlertTriangle, CheckCircle, Clock, Inbox, ChevronDown, ChevronUp, Quote } from "lucide-react";
 import Link from "next/link";
+import { getCategoryBadge, getUpdateColor, getIconColor } from "@/utils/categoryHelpers";
 
 interface EmailUpdate {
   type: 'shipment' | 'delivery' | 'delay' | 'approval' | 'action' | 'general';
+  category?: 'fashion_ops' | 'general';
   summary: string;
   from: string;
   urgency: 'high' | 'medium' | 'low';
+  sourceEmailId?: string;
+  sourceSubject?: string;
+  sourceQuote?: string;
+  sourceDate?: number;
+}
+
+interface ActionItem {
+  action: string;
+  sourceEmailId?: string;
+  sourceSubject?: string;
+  sourceQuote?: string;
+}
+
+interface SKUUpdate {
+  skuCode: string;
+  trackingNumber?: string;
+  status?: string;
+  deliveryDate?: string;
+  quantity?: number;
+  supplier?: string;
+  sourceEmailId: string;
+  sourceQuote: string;
 }
 
 interface SimplifiedEmailSummary {
   quickSummary: string;
   updates: EmailUpdate[];
-  actionsNeeded: string[];
+  actionsNeeded: (string | ActionItem)[];
+  skuUpdates?: SKUUpdate[];
 }
 
 export default function ModernEmailSummary() {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [structuredSummary, setStructuredSummary] = useState<SimplifiedEmailSummary | null>(null);
+  const [expandedUpdates, setExpandedUpdates] = useState<Set<number>>(new Set());
+  const [expandedActions, setExpandedActions] = useState<Set<number>>(new Set());
   
-  const connectionStatus = useQuery(api.nylas.queries.getConnectionStatus);
+  const connectionStatus = useQuery(api.emails.getEmailConnection);
   const fetchRecentEmails = useAction(api.nylas.actions.fetchRecentEmails);
   const summarizeInbox = useAction(api.emails.summarizeInbox);
+
+  const processEmailSKUUpdates = useAction(api.tracking.processEmailSKUUpdates);
 
   const fetchEmailsAndSummarize = useCallback(async () => {
     setLoading(true);
     try {
-      await fetchRecentEmails({ limit: 5, offset: 0 });
+      const emailsData = await fetchRecentEmails({ limit: 5, offset: 0 });
       const summaryResult = await summarizeInbox({ emailCount: 5 });
       setSummary(summaryResult.summary);
       
@@ -39,6 +68,29 @@ export default function ModernEmailSummary() {
       try {
         const parsed = JSON.parse(summaryResult.summary);
         setStructuredSummary(parsed);
+        
+        // Process SKU updates if present
+        if (parsed.skuUpdates && parsed.skuUpdates.length > 0) {
+          // Process all emails that might have SKU updates
+          if (emailsData && emailsData.emails) {
+            for (const email of emailsData.emails) {
+              try {
+                await processEmailSKUUpdates({
+                  emailId: email.id,
+                  emailSubject: email.subject || '',
+                  emailContent: email.body || email.snippet || '',
+                  skuUpdates: parsed.skuUpdates.filter((u: SKUUpdate) => 
+                    u.sourceEmailId === email.id || 
+                    // If no sourceEmailId, check if the quote appears in this email
+                    (email.body && email.body.includes(u.sourceQuote))
+                  ),
+                });
+              } catch (err) {
+                console.error('Failed to process SKU updates for email:', email.id, err);
+              }
+            }
+          }
+        }
       } catch (e) {
         console.error('Failed to parse summary:', e);
         // Fallback to text display
@@ -49,10 +101,10 @@ export default function ModernEmailSummary() {
     } finally {
       setLoading(false);
     }
-  }, [fetchRecentEmails, summarizeInbox]);
+  }, [fetchRecentEmails, summarizeInbox, processEmailSKUUpdates]);
 
   useEffect(() => {
-    if (connectionStatus?.connected && !summary) {
+    if (connectionStatus && !summary) {
       fetchEmailsAndSummarize().catch(console.error);
     }
   }, [connectionStatus, summary, fetchEmailsAndSummarize]);
@@ -63,7 +115,7 @@ export default function ModernEmailSummary() {
     fetchEmailsAndSummarize();
   };
 
-  if (!connectionStatus?.connected) {
+  if (!connectionStatus) {
     return (
       <div>
         <div className="mb-6">
@@ -102,53 +154,121 @@ export default function ModernEmailSummary() {
     }
   };
 
-  const getUpdateColor = (type: string, urgency: string) => {
-    if (urgency === 'high' || type === 'delay') {
-      return 'bg-red-50 border-red-200 text-red-900';
-    }
-    if (urgency === 'medium' || type === 'approval' || type === 'action') {
-      return 'bg-yellow-50 border-yellow-200 text-yellow-900';
-    }
-    return 'bg-blue-50 border-blue-200 text-blue-900';
+  const toggleUpdateExpanded = (index: number) => {
+    setExpandedUpdates(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
   };
 
-  const getIconColor = (type: string, urgency: string) => {
-    if (urgency === 'high' || type === 'delay') {
-      return 'text-red-600';
-    }
-    if (urgency === 'medium' || type === 'approval' || type === 'action') {
-      return 'text-yellow-600';
-    }
-    return 'text-blue-600';
+  const toggleActionExpanded = (index: number) => {
+    setExpandedActions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
   };
 
   const renderStructuredSummary = () => {
     if (!structuredSummary) return null;
+    
+    // Count categories
+    const fashionOpsCount = structuredSummary.updates?.filter(u => u.category === 'fashion_ops').length || 0;
+    const generalCount = structuredSummary.updates?.filter(u => u.category === 'general' || !u.category).length || 0;
 
     return (
       <div className="space-y-4">
         {/* Quick Summary */}
         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
           <p className="text-sm font-medium text-gray-900">{structuredSummary.quickSummary}</p>
+          {(fashionOpsCount > 0 || generalCount > 0) && (
+            <div className="flex items-center gap-3 mt-2">
+              {fashionOpsCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs text-yellow-700">
+                  📦 {fashionOpsCount} fashion ops
+                </span>
+              )}
+              {generalCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs text-blue-700">
+                  📧 {generalCount} general
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Updates */}
         {structuredSummary.updates && structuredSummary.updates.length > 0 && (
           <div className="space-y-2">
-            {structuredSummary.updates.map((update, idx) => (
-              <div
-                key={idx}
-                className={`flex items-start gap-3 p-3 rounded-lg border ${getUpdateColor(update.type, update.urgency)}`}
-              >
-                <div className={`mt-0.5 ${getIconColor(update.type, update.urgency)}`}>
-                  {getUpdateIcon(update.type)}
+            {structuredSummary.updates.map((update, idx) => {
+              const isExpanded = expandedUpdates.has(idx);
+              const hasSource = update.sourceQuote && update.sourceSubject;
+              
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-lg border ${getUpdateColor(update.type, update.urgency, update.category)}`}
+                >
+                  <div className="flex items-start gap-3 p-3">
+                    <div className={`mt-0.5 ${getIconColor(update.type, update.urgency, update.category)}`}>
+                      {getUpdateIcon(update.type)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-1">
+                        <p className="text-sm font-medium flex-1">{update.summary}</p>
+                        {getCategoryBadge(update.category)}
+                      </div>
+                      <div className="flex items-center gap-4 mt-1">
+                        <p className="text-xs opacity-75">From: {update.from}</p>
+                        {hasSource && (
+                          <button
+                            onClick={() => toggleUpdateExpanded(idx)}
+                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <Quote className="h-3 w-3" />
+                            View source
+                            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Expandable Source Quote */}
+                  {hasSource && isExpanded && (
+                    <div className="border-t bg-white/50 p-3">
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <Quote className="h-4 w-4 text-gray-400 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-gray-600 mb-1">
+                              From: &ldquo;{update.sourceSubject}&rdquo;
+                              {update.sourceDate && (
+                                <span className="ml-2 text-gray-400">
+                                  {new Date(update.sourceDate * 1000).toLocaleDateString()}
+                                </span>
+                              )}
+                            </p>
+                            <blockquote className="text-sm text-gray-700 border-l-2 border-gray-300 pl-3 italic">
+                              &ldquo;{update.sourceQuote}&rdquo;
+                            </blockquote>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{update.summary}</p>
-                  <p className="text-xs opacity-75 mt-1">From: {update.from}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -160,19 +280,95 @@ export default function ModernEmailSummary() {
               Actions Needed
             </h3>
             <ul className="space-y-2">
-              {structuredSummary.actionsNeeded.map((action, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <input type="checkbox" className="mt-0.5 rounded border-gray-300" />
-                  <span className="text-sm text-gray-700">{action}</span>
-                </li>
-              ))}
+              {structuredSummary.actionsNeeded.map((actionItem, idx) => {
+                const isExpanded = expandedActions.has(idx);
+                const action = typeof actionItem === 'string' ? actionItem : actionItem.action;
+                const hasSource = typeof actionItem === 'object' && actionItem.sourceQuote;
+                
+                return (
+                  <li key={idx} className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <input type="checkbox" className="mt-0.5 rounded border-gray-300" />
+                      <div className="flex-1">
+                        <span className="text-sm text-gray-700">{action}</span>
+                        {hasSource && (
+                          <button
+                            onClick={() => toggleActionExpanded(idx)}
+                            className="ml-2 text-xs text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
+                          >
+                            <Quote className="h-3 w-3" />
+                            View source
+                            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Expandable Source Quote for Actions */}
+                    {hasSource && isExpanded && typeof actionItem === 'object' && (
+                      <div className="ml-6 p-2 bg-white/70 rounded border border-yellow-100">
+                        <p className="text-xs font-medium text-gray-600 mb-1">
+                          From: &ldquo;{actionItem.sourceSubject}&rdquo;
+                        </p>
+                        <blockquote className="text-xs text-gray-700 border-l-2 border-yellow-300 pl-2 italic">
+                          &ldquo;{actionItem.sourceQuote}&rdquo;
+                        </blockquote>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
+          </div>
+        )}
+
+        {/* SKU Updates - New Section */}
+        {structuredSummary.skuUpdates && structuredSummary.skuUpdates.length > 0 && (
+          <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Package className="h-4 w-4 text-purple-600" />
+              SKU Tracking Updates
+            </h3>
+            <div className="space-y-2">
+              {structuredSummary.skuUpdates.map((update, idx) => (
+                <div key={idx} className="bg-white rounded-md p-3 border border-purple-100">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-mono font-semibold text-purple-900">
+                        {update.skuCode}
+                      </p>
+                      <div className="mt-1 space-y-1 text-xs text-gray-600">
+                        {update.trackingNumber && (
+                          <p>Tracking: <span className="font-mono">{update.trackingNumber}</span></p>
+                        )}
+                        {update.status && (
+                          <p>Status: <span className="font-medium capitalize">{update.status}</span></p>
+                        )}
+                        {update.deliveryDate && (
+                          <p>Delivery: {update.deliveryDate}</p>
+                        )}
+                        {update.quantity && (
+                          <p>Quantity: {update.quantity}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                      Auto-tracked
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-purple-700 mt-3">
+              {structuredSummary.skuUpdates.length} SKU{structuredSummary.skuUpdates.length !== 1 ? 's' : ''} automatically tracked from emails
+            </p>
           </div>
         )}
 
         {/* Empty state - only show if truly no data */}
         {(!structuredSummary.updates || structuredSummary.updates.length === 0) && 
          (!structuredSummary.actionsNeeded || structuredSummary.actionsNeeded.length === 0) && 
+         (!structuredSummary.skuUpdates || structuredSummary.skuUpdates.length === 0) && 
          !structuredSummary.quickSummary && (
           <div className="text-center py-8 text-gray-500">
             <Inbox className="h-8 w-8 mx-auto mb-2 text-gray-400" />
