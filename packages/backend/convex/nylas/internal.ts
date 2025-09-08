@@ -120,25 +120,6 @@ export const storeEmailSummary = internalMutation({
 });
 
 /**
- * Internal query to get user's email summaries
- */
-export const getEmailSummaries = internalQuery({
-  args: {
-    userId: v.string(),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, { userId, limit = 10 }) => {
-    const summaries = await ctx.db
-      .query("emailSummaries")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
-      .take(limit);
-    
-    return summaries;
-  },
-});
-
-/**
  * Internal mutation to store OAuth state for CSRF protection
  */
 export const storeOAuthState = internalMutation({

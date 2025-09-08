@@ -31,6 +31,8 @@ import type * as ai_models from "../ai/models.js";
 import type * as chat_basic from "../chat/basic.js";
 import type * as chat_streaming from "../chat/streaming.js";
 import type * as constants from "../constants.js";
+import type * as crons from "../crons.js";
+import type * as emails_internal from "../emails/internal.js";
 import type * as emails from "../emails.js";
 import type * as helpers_auth from "../helpers/auth.js";
 import type * as helpers_retry from "../helpers/retry.js";
@@ -91,6 +93,8 @@ declare const fullApi: ApiFromModules<{
   "chat/basic": typeof chat_basic;
   "chat/streaming": typeof chat_streaming;
   constants: typeof constants;
+  crons: typeof crons;
+  "emails/internal": typeof emails_internal;
   emails: typeof emails;
   "helpers/auth": typeof helpers_auth;
   "helpers/retry": typeof helpers_retry;

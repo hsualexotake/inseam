@@ -61,78 +61,14 @@ export default defineSchema({
   }).index("by_state", ["state"])
     .index("by_expires", ["expiresAt"]),
   
-  // DEPRECATED: These tables are kept for migration purposes only
-  // All new code should use skuTracking table instead
-  skus: defineTable({
-    skuCode: v.string(),
-    productName: v.string(),
-    category: v.string(),
-    color: v.string(),
-    size: v.string(),
-    season: v.string(),
+  // Track processed email IDs to prevent duplicates
+  processedEmailIds: defineTable({
     userId: v.string(),
+    emailId: v.string(), // Nylas message ID
     createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_user", ["userId"])
-    .index("by_sku_code", ["skuCode"])
-    .index("by_user_sku", ["userId", "skuCode"]),
+  }).index("by_user_email", ["userId", "emailId"])
+    .index("by_created", ["createdAt"]), // For cleanup queries
   
-  shipments: defineTable({
-    skuId: v.id("skus"),
-    trackingNumber: v.optional(v.string()),
-    supplier: v.string(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("shipped"),
-      v.literal("in_transit"),
-      v.literal("delivered"),
-      v.literal("delayed")
-    ),
-    quantity: v.number(),
-    shippedDate: v.optional(v.number()),
-    expectedDelivery: v.optional(v.number()),
-    actualDelivery: v.optional(v.number()),
-    notes: v.optional(v.string()),
-    lastUpdatedFrom: v.optional(v.union(v.literal("email"), v.literal("manual"))),
-    sourceEmailId: v.optional(v.string()),
-    userId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_sku", ["skuId"])
-    .index("by_user", ["userId"])
-    .index("by_tracking", ["trackingNumber"]),
-  
-  skuEmailMappings: defineTable({
-    emailId: v.string(),
-    skuCode: v.string(),
-    extractedData: v.object({
-      trackingNumber: v.optional(v.string()),
-      status: v.optional(v.string()),
-      deliveryDate: v.optional(v.string()),
-      quantity: v.optional(v.number()),
-      supplier: v.optional(v.string()),
-    }),
-    confidence: v.number(), // 0-1 confidence score
-    appliedUpdate: v.boolean(),
-    userId: v.string(),
-    createdAt: v.number(),
-  }).index("by_email", ["emailId"])
-    .index("by_sku", ["skuCode"])
-    .index("by_user", ["userId"]),
-  
-  skuUpdateLogs: defineTable({
-    skuId: v.id("skus"),
-    shipmentId: v.optional(v.id("shipments")),
-    updateType: v.string(), // "status_change", "tracking_added", "delivery_update", etc
-    previousValue: v.optional(v.string()),
-    newValue: v.string(),
-    source: v.union(v.literal("email"), v.literal("manual")),
-    sourceEmailId: v.optional(v.string()),
-    userId: v.string(),
-    createdAt: v.number(),
-  }).index("by_sku", ["skuId"])
-    .index("by_shipment", ["shipmentId"])
-    .index("by_user", ["userId"]),
   
   // Unified updates table for all sources (email, wechat, whatsapp, etc)
   updates: defineTable({
@@ -158,7 +94,7 @@ export default defineSchema({
     skuUpdates: v.optional(v.array(v.object({
       skuCode: v.string(),
       field: v.string(),
-      oldValue: v.optional(v.string()),
+      oldValue: v.optional(v.union(v.string(), v.null())), // Can be string, null, or undefined
       newValue: v.string(),
       confidence: v.number(),
     }))),
@@ -169,6 +105,7 @@ export default defineSchema({
       completed: v.boolean(),
       completedAt: v.optional(v.number()),
     }))),
+    
     
     createdAt: v.number(),
     processed: v.boolean(), // whether SKU updates were applied to tracking
@@ -196,6 +133,7 @@ export default defineSchema({
     quantity: v.optional(v.number()),
     supplier: v.optional(v.string()),
     notes: v.optional(v.string()),
+    
     
     // Last update metadata
     lastUpdatedFrom: v.optional(v.string()), // email ID or "manual"

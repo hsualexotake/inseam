@@ -46,6 +46,7 @@ interface SimplifiedEmailSummary {
 
 export default function ModernEmailSummary() {
   const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false); // Prevent double-fetching
   const [summary, setSummary] = useState<string | null>(null);
   const [structuredSummary, setStructuredSummary] = useState<SimplifiedEmailSummary | null>(null);
   const [expandedUpdates, setExpandedUpdates] = useState<Set<number>>(new Set());
@@ -58,10 +59,16 @@ export default function ModernEmailSummary() {
   const processEmailSKUUpdates = useAction(api.tracking.processEmailSKUUpdates);
 
   const fetchEmailsAndSummarize = useCallback(async () => {
+    // Prevent double-fetching
+    if (isFetching) return;
+    
+    setIsFetching(true);
     setLoading(true);
     try {
       const emailsData = await fetchRecentEmails({ limit: 5, offset: 0 });
-      const summaryResult = await summarizeInbox({ emailCount: 5 });
+      const summaryResult = await summarizeInbox({ 
+        emailCount: 5
+      });
       setSummary(summaryResult.summary);
       
       // Parse the JSON summary
@@ -100,8 +107,9 @@ export default function ModernEmailSummary() {
       console.error('Error fetching emails:', err);
     } finally {
       setLoading(false);
+      setIsFetching(false); // Reset fetching state
     }
-  }, [fetchRecentEmails, summarizeInbox, processEmailSKUUpdates]);
+  }, [fetchRecentEmails, summarizeInbox, processEmailSKUUpdates, isFetching]);
 
   useEffect(() => {
     if (connectionStatus && !summary) {
@@ -112,6 +120,7 @@ export default function ModernEmailSummary() {
   const handleRefresh = () => {
     setSummary(null);
     setStructuredSummary(null);
+    // Fetch and process any new emails
     fetchEmailsAndSummarize();
   };
 

@@ -266,7 +266,21 @@ export function cleanEmailBody(body: string): string {
     // Remove all HTML tags and their content for security
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script tags entirely
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')   // Remove style tags entirely
-    .replace(/<[^>]*>/g, '')                          // Remove all other HTML tags
+    // Remove HTML tags intelligently - don't add space if followed by punctuation or whitespace
+    .replace(/<[^>]*>(?=[\s\.,;:!?\)])|<[^>]*>/g, (match, offset, str) => {
+      // If tag is followed by whitespace or punctuation, remove without adding space
+      const nextChar = str[offset + match.length];
+      if (nextChar && /[\s\.,;:!?\)]/.test(nextChar)) {
+        return '';
+      }
+      // If tag is preceded by whitespace, remove without adding space
+      const prevChar = str[offset - 1];
+      if (prevChar && /[\s\(]/.test(prevChar)) {
+        return '';
+      }
+      // Otherwise add a space to separate words
+      return ' ';
+    })
     
     // Decode common HTML entities
     .replace(/&nbsp;/g, ' ')

@@ -6,7 +6,7 @@ import { components, api } from "./_generated/api";
 import { internal } from "./_generated/api";
 import type { EmailSummaryResult, FormattedEmail } from "./nylas/types";
 import { requireAuth, optionalAuth } from "./helpers/auth";
-import { MAX_EMAIL_SUMMARY_COUNT, validatePromptLength } from "./nylas/config";
+import { MAX_EMAIL_SUMMARY_COUNT } from "./nylas/config";
 // Auth helpers - keeping import in case needed for future endpoints
 
 /**
@@ -37,8 +37,31 @@ export const summarizeInbox = action({
       };
     }
     
+    // Check which emails have already been processed (batch query for performance)
+    const emailIds = emailData.emails.map((e: FormattedEmail) => e.id);
+    const processedChecks = await ctx.runQuery(
+      internal.emails.internal.checkProcessedEmailsBatch,
+      { userId, emailIds }
+    );
+    
+    // Filter to only new emails that have never been processed
+    const newEmails = emailData.emails.filter(
+      (_: FormattedEmail, idx: number) => !processedChecks[idx]
+    );
+    
+    // If no new emails, return informative message
+    if (newEmails.length === 0) {
+      return {
+        summary: "No new emails since last check. All recent emails have already been processed.",
+        threadId: null,
+        usage: null,
+      };
+    }
+    
+    const newEmailIds = newEmails.map((e: FormattedEmail) => e.id);
+    
     // Format emails for the AI prompt - now including email IDs for source tracking
-    const emailsFormatted = emailData.emails.map((email: FormattedEmail, index: number) => `
+    const emailsFormatted = newEmails.map((email: FormattedEmail, index: number) => `
 Email ${index + 1}:
 ID: ${email.id}
 From: ${email.from.name || email.from.email} <${email.from.email}>
@@ -64,7 +87,7 @@ Content: ${email.body || email.snippet || '(No content)'}
       ctx,
       { threadId, userId },
       { 
-        prompt: `You are analyzing ${emailData.emails.length} recent emails. Please create a comprehensive summary with source citations.
+        prompt: `You are analyzing ${newEmails.length} recent emails. Please create a comprehensive summary with source citations.
 
 IMPORTANT: For each update and action item, you MUST include:
 - The exact email ID it came from
@@ -84,22 +107,19 @@ Create a JSON summary following the exact structure defined in your instructions
       }
     );
     
-    // Get email IDs for storage
-    const emailIds = emailData.emails.map((e: FormattedEmail) => e.id);
-    
     // Store the summary in database
     const now = new Date();
     await ctx.runMutation(internal.nylas.internal.storeEmailSummary, {
       userId,
-      emailIds,
+      emailIds: newEmailIds,
       summary: result.text,
       threadId,
       timeRange: {
-        start: emailData.emails.length > 0 
-          ? new Date(emailData.emails[emailData.emails.length - 1].date * 1000).toISOString()
+        start: newEmails.length > 0 
+          ? new Date(newEmails[newEmails.length - 1].date * 1000).toISOString()
           : now.toISOString(),
-        end: emailData.emails.length > 0 
-          ? new Date(emailData.emails[0].date * 1000).toISOString()
+        end: newEmails.length > 0 
+          ? new Date(newEmails[0].date * 1000).toISOString()
           : now.toISOString(),
       },
     });
@@ -107,13 +127,30 @@ Create a JSON summary following the exact structure defined in your instructions
     // Process the summary and create unified updates
     try {
       // Store updates in the unified updates table
-      await ctx.runMutation(api.updates.processEmailSummary, {
-        emailIds,
+      const updateResult = await ctx.runMutation(api.updates.processEmailSummary, {
+        emailIds: newEmailIds,
         summary: result.text,
       });
-    } catch {
-      // If parsing fails, continue without error
-      // Silent failure - updates processing is best effort
+      
+      // Only mark emails as processed if at least some updates succeeded
+      if (updateResult.success) {
+        await ctx.runMutation(internal.emails.internal.markEmailsProcessed, {
+          userId,
+          emailIds: newEmailIds,
+        });
+        
+        // Log partial failures if any
+        if (updateResult.failed > 0) {
+          // eslint-disable-next-line no-console
+          console.warn(`Processed ${updateResult.created} updates successfully, ${updateResult.failed} failed`);
+        }
+      } else {
+        // No updates succeeded, throw error to prevent marking as processed
+        throw new Error(`Failed to process any updates from email summary`);
+      }
+    } catch (error) {
+      // Re-throw to prevent marking emails as processed
+      throw new Error(`Failed to process email summary: ${error}`);
     }
     
     return {
@@ -203,77 +240,6 @@ export const getEmailConnection = query({
       provider: grant.provider,
       connectedAt: new Date(grant.createdAt).toISOString(),
       lastUpdated: new Date(grant.updatedAt).toISOString(),
-    };
-  },
-});
-
-/**
- * Generate an intelligent response to an email
- */
-export const generateEmailResponse = action({
-  args: v.object({
-    emailId: v.string(),
-    responseType: v.union(
-      v.literal("accept"),
-      v.literal("decline"),
-      v.literal("followup"),
-      v.literal("custom")
-    ),
-    customPrompt: v.optional(v.string()),
-  }),
-  handler: async (ctx, { emailId, responseType, customPrompt }) => {
-    const userId = await requireAuth(ctx);
-    
-    // Validate custom prompt if provided
-    if (customPrompt) {
-      validatePromptLength(customPrompt);
-    }
-    // Fetch emails directly using the simplified action
-    const emailData = await ctx.runAction(api.nylas.actions.fetchRecentEmails, {
-      limit: 20, // Fetch more to find the specific email
-      offset: 0,
-    });
-    
-    const email = emailData.emails.find((e: FormattedEmail) => e.id === emailId);
-    if (!email) {
-      throw new Error("Email not found");
-    }
-    
-    // Create agent for email response generation
-    const agent = await AgentFactory.create('creative');
-    
-    // Create thread
-    const threadId = await createThread(ctx, components.agent, {
-      userId,
-      title: `Email Response - ${email.subject}`,
-    });
-    
-    // Generate response based on type
-    let prompt = "";
-    switch (responseType) {
-      case "accept":
-        prompt = `Generate a professional email accepting the following request. Original email: Subject: ${email.subject}, From: ${email.from.email}, Body: ${email.body}`;
-        break;
-      case "decline":
-        prompt = `Generate a polite email declining the following request. Original email: Subject: ${email.subject}, From: ${email.from.email}, Body: ${email.body}`;
-        break;
-      case "followup":
-        prompt = `Generate a follow-up email for: Subject: ${email.subject}, From: ${email.from.email}, Body: ${email.body}`;
-        break;
-      case "custom":
-        prompt = customPrompt || `Generate a response to: Subject: ${email.subject}, From: ${email.from.email}, Body: ${email.body}`;
-        break;
-    }
-    
-    const result = await agent.generateText(
-      ctx,
-      { threadId, userId },
-      { prompt }
-    );
-    
-    return {
-      response: result.text,
-      threadId,
     };
   },
 });
