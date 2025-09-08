@@ -57,7 +57,11 @@ export const fetchRecentEmails = action({
       }
       
       // Fetch emails using Nylas API with API key authentication
-      const endpoint = `/grants/${grant.grantId}/messages?limit=${validatedLimit}&offset=${validatedOffset}`;
+      // Nylas returns messages in reverse chronological order (newest first) by default
+      const endpoint = `/grants/${grant.grantId}/messages?` +
+        `limit=${validatedLimit}&` +
+        `offset=${validatedOffset}`;
+      
       const data = await ctx.runAction(
         internal.nylas.nodeActions.nylasApiCall,
         {
@@ -206,8 +210,10 @@ export const handleNylasCallback = action({
           { grantId: tokenData.grant_id }
         );
         provider = grantData.provider || "unknown";
-      } catch {
+      } catch (error) {
         // Failed to fetch grant info - infer provider from email domain as fallback
+        // eslint-disable-next-line no-console
+        console.warn("Failed to fetch grant info, inferring provider from email:", error);
         if (tokenData.email.includes("@gmail.com") || tokenData.email.includes("@googlemail.com")) {
           provider = "google";
         } else if (tokenData.email.includes("@outlook.com") || tokenData.email.includes("@hotmail.com")) {

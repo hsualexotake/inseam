@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { optionalAuth, requireAuth } from "./helpers/auth";
-import { QUERY_LIMITS, UPDATE_TYPE_EMOJIS } from "./constants";
+import { QUERY_LIMITS } from "./constants";
 
 /**
  * Unified Updates System
@@ -37,84 +37,6 @@ export const getRecentUpdates = query({
   },
 });
 
-// Create update from email summary with validation
-export const createUpdateFromEmail = mutation({
-  args: v.object({
-    emailId: v.string(),
-    emailData: v.object({
-      from: v.object({
-        name: v.optional(v.string()),
-        email: v.string(),
-      }),
-      subject: v.string(),
-      date: v.number(),
-    }),
-    update: v.object({
-      type: v.string(),
-      category: v.optional(v.string()), // 'fashion_ops' or 'general'
-      summary: v.string(),
-      urgency: v.optional(v.string()),
-      sourceQuote: v.optional(v.string()),
-      skuUpdates: v.optional(v.array(v.object({
-        skuCode: v.string(),
-        field: v.string(),
-        newValue: v.string(),
-        confidence: v.number(),
-      }))),
-    }),
-  }),
-  handler: async (ctx, { emailId, emailData, update }) => {
-    const userId = await requireAuth(ctx);
-    const now = Date.now();
-    
-    // Create title based on update type using constants
-    const updateType = update.type as keyof typeof UPDATE_TYPE_EMOJIS;
-    const emoji = UPDATE_TYPE_EMOJIS[updateType] || UPDATE_TYPE_EMOJIS.general;
-    const typeLabel = update.type.charAt(0).toUpperCase() + update.type.slice(1);
-    const title = `${emoji} ${typeLabel} Update`;
-    
-    const updateId = await ctx.db.insert("updates", {
-      userId,
-      source: "email",
-      sourceId: emailId,
-      type: update.type,
-      category: update.category, // Store category
-      title,
-      summary: update.summary,
-      urgency: update.urgency,
-      fromName: emailData.from.name || emailData.from.email,
-      fromId: emailData.from.email,
-      sourceSubject: emailData.subject,
-      sourceQuote: update.sourceQuote,
-      sourceDate: emailData.date,
-      skuUpdates: update.skuUpdates,
-      actionsNeeded: [],
-      createdAt: now,
-      processed: false,
-    });
-    
-    // Process SKU updates if present
-    if (update.skuUpdates && update.skuUpdates.length > 0) {
-      for (const skuUpdate of update.skuUpdates) {
-        await ctx.runMutation(api.tracking.upsertSKUFromEmail, {
-          skuCode: skuUpdate.skuCode,
-          updates: {
-            [skuUpdate.field]: skuUpdate.newValue,
-          },
-          sourceEmailId: emailId,
-          sourceQuote: update.sourceQuote || "",
-          confidence: skuUpdate.confidence,
-        });
-      }
-      
-      // Mark as processed
-      await ctx.db.patch(updateId, { processed: true });
-    }
-    
-    return updateId;
-  },
-});
-
 // Process email summary and create multiple updates with validation
 export const processEmailSummary = mutation({
   args: v.object({
@@ -137,6 +59,7 @@ export const processEmailSummary = mutation({
     try {
       const summaryData = JSON.parse(summary);
       const createdUpdates = [];
+      const failedUpdates = [];
       
       // Process each update in the summary
       if (summaryData.updates && Array.isArray(summaryData.updates)) {
@@ -147,66 +70,86 @@ export const processEmailSummary = mutation({
             update.summary?.includes(sku.skuCode)
           );
           
-          const updateId = await ctx.db.insert("updates", {
-            userId,
-            source: "email",
-            sourceId: update.sourceEmailId || emailIds[0],
-            type: update.type || "general",
-            category: update.category || (update.type === "general" ? "general" : "fashion_ops"),
-            title: update.summary.substring(0, 50),
-            summary: update.summary,
-            urgency: update.urgency || "medium",
-            fromName: update.from,
-            sourceSubject: update.sourceSubject,
-            sourceQuote: update.sourceQuote,
-            sourceDate: update.sourceDate,
-            skuUpdates: relatedSkuChanges?.map((sku: { 
-              skuCode: string; 
-              field: string; 
-              currentValue?: string; 
-              newValue: string; 
-              confidence?: number;
-            }) => ({
-              skuCode: sku.skuCode,
-              field: sku.field,
-              oldValue: sku.currentValue,
-              newValue: sku.newValue,
-              confidence: sku.confidence || 0.8,
-            })),
-            actionsNeeded: [],
-            createdAt: now,
-            processed: false,
-          });
+          // Validate required fields before insert
+          if (!update.summary) {
+            continue; // Skip this update but continue processing others
+          }
           
-          createdUpdates.push(updateId);
+          try {
+            const updateId = await ctx.db.insert("updates", {
+              userId,
+              source: "email",
+              sourceId: update.sourceEmailId || emailIds[0],
+              type: update.type || "general",
+              category: update.category || (update.type === "general" ? "general" : "fashion_ops"),
+              title: update.summary.substring(0, 50),
+              summary: update.summary,
+              urgency: update.urgency || "medium",
+              fromName: update.from || "Unknown", // Provide default value
+              sourceSubject: update.sourceSubject,
+              sourceQuote: update.sourceQuote,
+              sourceDate: update.sourceDate,
+              skuUpdates: relatedSkuChanges?.map((sku: { 
+                skuCode: string; 
+                field: string; 
+                currentValue?: string | null; // Accept both string and null from AI
+                newValue: string; 
+                confidence?: number;
+              }) => ({
+                skuCode: sku.skuCode,
+                field: sku.field,
+                oldValue: sku.currentValue,
+                newValue: sku.newValue,
+                confidence: sku.confidence || 0.8,
+              })),
+              actionsNeeded: [],
+              createdAt: now,
+              processed: false,
+            });
+            
+            createdUpdates.push(updateId);
+          } catch (insertError) {
+            // Log error but continue processing other updates (partial failure handling)
+            // eslint-disable-next-line no-console
+            console.error(`Failed to insert update: ${update.summary?.substring(0, 50)}`, insertError);
+            failedUpdates.push({ update, error: insertError });
+            // Continue processing other updates instead of throwing
+          }
         }
       }
       
       // Process action items
       if (summaryData.actionsNeeded && Array.isArray(summaryData.actionsNeeded)) {
         for (const action of summaryData.actionsNeeded) {
-          const actionText = typeof action === 'string' ? action : action.action;
-          const sourceQuote = typeof action === 'object' ? action.sourceQuote : undefined;
-          
-          const updateId = await ctx.db.insert("updates", {
-            userId,
-            source: "email",
-            sourceId: emailIds[0],
-            type: "action",
-            title: "⚡ Action Required",
-            summary: actionText,
-            urgency: "high",
-            sourceQuote,
-            actionsNeeded: [{
-              action: actionText,
-              completed: false,
-              completedAt: undefined,
-            }],
-            createdAt: now,
-            processed: false,
-          });
-          
-          createdUpdates.push(updateId);
+          try {
+            const actionText = typeof action === 'string' ? action : action.action;
+            const sourceQuote = typeof action === 'object' ? action.sourceQuote : undefined;
+            
+            const updateId = await ctx.db.insert("updates", {
+              userId,
+              source: "email",
+              sourceId: emailIds[0],
+              type: "action",
+              title: "⚡ Action Required",
+              summary: actionText,
+              urgency: "high",
+              sourceQuote,
+              actionsNeeded: [{
+                action: actionText,
+                completed: false,
+                completedAt: undefined,
+              }],
+              createdAt: now,
+              processed: false,
+            });
+            
+            createdUpdates.push(updateId);
+          } catch (insertError) {
+            // Log but continue with other actions
+            // eslint-disable-next-line no-console
+            console.error(`Failed to insert action item: ${action}`, insertError);
+            failedUpdates.push({ action, error: insertError });
+          }
         }
       }
       
@@ -237,10 +180,22 @@ export const processEmailSummary = mutation({
         }
       }
       
-      return { created: createdUpdates.length };
-    } catch {
-      // Silent failure - email summary processing is best effort
-      return { created: 0 };
+      // Report results including partial failures
+      if (failedUpdates.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(`Processed ${createdUpdates.length} updates successfully, ${failedUpdates.length} failed`);
+      }
+      
+      return { 
+        created: createdUpdates.length,
+        failed: failedUpdates.length,
+        success: createdUpdates.length > 0 
+      };
+    } catch (error) {
+      // Log error but don't fail the entire operation
+      // eslint-disable-next-line no-console
+      console.error("Failed to process email summary:", error);
+      return { created: 0, failed: 0, success: false };
     }
   },
 });
