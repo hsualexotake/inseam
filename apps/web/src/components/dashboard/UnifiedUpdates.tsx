@@ -1,52 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
-// import { useRouter } from "next/navigation"; // Commented out - not currently used
 import { 
-  Mail, MessageSquare, Phone, Package, Truck, AlertTriangle, 
-  CheckCircle, ChevronDown, ChevronUp, 
-  Zap, Bell, RefreshCw, X, Filter, Layers, Tag
+  Mail, ChevronDown, ChevronUp, 
+  RefreshCw, X, Filter, Layers, Tag, Zap
 } from "lucide-react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
-import { getCategoryColor } from "@/utils/categoryHelpers";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
-
-// Source configurations
-const sourceConfig = {
-  email: { label: "Email", icon: Mail, color: "bg-blue-100 text-blue-800" },
-  wechat: { label: "WeChat", icon: MessageSquare, color: "bg-green-100 text-green-800" },
-  whatsapp: { label: "WhatsApp", icon: Phone, color: "bg-emerald-100 text-emerald-800" },
-  sms: { label: "SMS", icon: Phone, color: "bg-purple-100 text-purple-800" },
-  manual: { label: "Manual", icon: Bell, color: "bg-gray-100 text-gray-800" },
-};
-
-// Type configurations
-const typeConfig = {
-  shipment: { label: "Shipment Update", icon: Package, color: "text-blue-600 bg-blue-50" },
-  delivery: { label: "Delivered", icon: CheckCircle, color: "text-green-600 bg-green-50" },
-  delay: { label: "Delayed", icon: AlertTriangle, color: "text-red-600 bg-red-50" },
-  delayed: { label: "Delayed", icon: AlertTriangle, color: "text-red-600 bg-red-50" },
-  approval: { label: "Approval", icon: CheckCircle, color: "text-purple-600 bg-purple-50" },
-  action: { label: "Action Required", icon: Zap, color: "text-orange-600 bg-orange-50" },
-  general: { label: "Update", icon: Bell, color: "text-gray-600 bg-gray-50" },
-  in_transit: { label: "In Transit", icon: Truck, color: "text-indigo-600 bg-indigo-50" },
-};
-
-// Urgency colors - commented out as currently unused
-// const urgencyConfig = {
-//   high: "border-l-4 border-red-400",
-//   medium: "border-l-4 border-yellow-400",
-//   low: "border-l-4 border-gray-300",
-// };
+import {
+  Cell,
+  Column,
+  Row,
+  Table,
+  TableBody,
+  TableHeader,
+} from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  MAX_TABLE_HEIGHT,
+  UPDATES_FETCH_LIMIT,
+  EMAIL_FETCH_COUNT,
+  sourceConfig,
+  getTypeConfig,
+  badgeStyles
+} from "@/config/updates.config";
 
 interface Update {
   _id: Id<"updates">;
   source: string;
   sourceId?: string;
   type: string;
-  category?: string; // 'fashion_ops' or 'general'
+  category?: string;
   title: string;
   summary: string;
   urgency?: string;
@@ -73,7 +59,6 @@ interface Update {
 
 // Helper function to extract SKU from text
 const extractSKU = (text: string): string | null => {
-  // Match various SKU patterns
   const patterns = [
     /SKU[:\s]+([A-Z0-9-]+)/i,
     /\b([A-Z]{2,}-\d{4}-[A-Z0-9-]+)\b/i,
@@ -91,52 +76,41 @@ const extractSKU = (text: string): string | null => {
 
 // Helper function to format update title and summary
 const formatUpdate = (update: Update): { formattedTitle: string; formattedSummary: string } => {
-  // Try to extract SKU from various sources
   let sku = null;
   
-  // Check skuUpdates first
   if (update.skuUpdates && update.skuUpdates.length > 0) {
     sku = update.skuUpdates[0].skuCode;
   }
   
-  // Then try summary and sourceQuote
   if (!sku) {
     sku = extractSKU(update.summary) || extractSKU(update.sourceQuote || '');
   }
   
-  // Get type label
-  const typeConf = typeConfig[update.type as keyof typeof typeConfig] || typeConfig.general;
+  const typeConf = getTypeConfig(update.type);
   const typeLabel = typeConf.label;
   
-  // Format title
   const formattedTitle = sku ? `SKU ${sku}: ${typeLabel}` : update.title;
   
-  // Format summary - extract key information
   let formattedSummary = update.summary;
   
-  // Remove redundant SKU mentions from summary
   if (sku) {
     formattedSummary = formattedSummary
       .replace(new RegExp(`SKU[:\\s]+${sku}`, 'gi'), '')
       .replace(new RegExp(`\\b${sku}\\b`, 'gi'), '')
-      .replace(/^[\s,;]+|[\s,;]+$/g, ''); // Clean up leading/trailing punctuation
+      .replace(/^[\s,;]+|[\s,;]+$/g, '');
   }
   
-  // Extract and format key details based on update type
   if (update.type === 'delay' || update.type === 'delayed') {
-    // Extract new date
     const dateMatch = formattedSummary.match(/(?:to|date[:\s]+|is[:\s]+)([A-Za-z]+ \d+(?:,? \d{4})?)/i);
     if (dateMatch) {
       formattedSummary = `New delivery date: ${dateMatch[1]}`;
     } else if (formattedSummary.toLowerCase().includes('delayed')) {
-      // Clean up delayed messages
       formattedSummary = formattedSummary.replace(/(?:has been |is )?delayed/gi, '').trim();
       if (formattedSummary.startsWith('to ')) {
         formattedSummary = `New date: ${formattedSummary.substring(3)}`;
       }
     }
   } else if (update.type === 'delivery') {
-    // Extract delivery confirmation
     const delivered = formattedSummary.match(/delivered(?:[:\s]+(.+))?/i);
     if (delivered && delivered[1]) {
       formattedSummary = `Delivered: ${delivered[1]}`;
@@ -144,18 +118,15 @@ const formatUpdate = (update: Update): { formattedTitle: string; formattedSummar
       formattedSummary = "Successfully delivered";
     }
   } else if (update.type === 'shipment') {
-    // Clean up shipment messages
     formattedSummary = formattedSummary.replace(/^(?:Shipment |Package )/i, '');
   }
   
-  // Final cleanup
   formattedSummary = formattedSummary
     .replace(/^Delivery for\s+/i, '')
     .replace(/^has been\s+/i, '')
     .replace(/\s+/g, ' ')
     .trim();
   
-  // Capitalize first letter
   if (formattedSummary) {
     formattedSummary = formattedSummary.charAt(0).toUpperCase() + formattedSummary.slice(1);
   }
@@ -165,17 +136,23 @@ const formatUpdate = (update: Update): { formattedTitle: string; formattedSummar
 
 export default function UnifiedUpdates() {
   const [sourceFilter, setSourceFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all"); // New category filter
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [expandedUpdates, setExpandedUpdates] = useState<Set<string>>(new Set());
+  const [selectedUpdates, setSelectedUpdates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  // const router = useRouter(); // Commented out - not currently used
   
   // Fetch updates
-  const updates = useQuery(api.updates.getRecentUpdates, {
+  const updatesQuery = useQuery(api.updates.getRecentUpdates, {
     source: sourceFilter === "all" ? undefined : sourceFilter,
-    limit: 20,
-  }) as Update[] | undefined;
+    limit: UPDATES_FETCH_LIMIT,
+  });
+  
+  // Type-safe updates with validation
+  const updates = useMemo(() => {
+    if (!updatesQuery) return undefined;
+    return Array.isArray(updatesQuery) ? updatesQuery as Update[] : undefined;
+  }, [updatesQuery]);
   
   const stats = useQuery(api.updates.getUpdateStats);
   const completeAction = useMutation(api.updates.completeAction);
@@ -195,6 +172,26 @@ export default function UnifiedUpdates() {
     setExpandedUpdates(newExpanded);
   };
   
+  // Toggle selected state
+  const toggleSelected = (id: string) => {
+    const newSelected = new Set(selectedUpdates);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedUpdates(newSelected);
+  };
+  
+  // Toggle all selected
+  const toggleAllSelected = () => {
+    if (selectedUpdates.size === filteredUpdates?.length) {
+      setSelectedUpdates(new Set());
+    } else {
+      setSelectedUpdates(new Set(filteredUpdates?.map(u => u._id) || []));
+    }
+  };
+  
   // Format time ago
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -203,39 +200,53 @@ export default function UnifiedUpdates() {
     const days = Math.floor(hours / 24);
     
     if (days > 7) return new Date(timestamp).toLocaleDateString();
-    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    if (minutes > 0) return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
     return "just now";
   };
   
+  // Format date and time
+  const formatDateTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    };
+    return date.toLocaleString('en-US', options);
+  };
+  
   // Handle refresh (fetch new emails)
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setLoading(true);
     try {
-      await summarizeEmails({ emailCount: 5 });
+      await summarizeEmails({ emailCount: EMAIL_FETCH_COUNT });
     } catch (error) {
       console.error("Failed to fetch updates:", error);
+      // TODO: Add user-facing error notification here
+      // Could use a toast library or error state
     } finally {
       setLoading(false);
     }
-  };
+  }, [summarizeEmails]);
   
   // Handle connect email
   const handleConnectEmail = async () => {
     setConnecting(true);
     
     try {
-      // Store the return URL in sessionStorage
       sessionStorage.setItem('nylas_return_url', '/dashboard');
       
       const redirectUri = `${window.location.origin}/emailsummary/callback`;
       const result = await initiateEmailAuth({
         redirectUri,
-        provider: 'google', // Default to Google for now
+        provider: 'google',
       });
       
-      // Redirect to Nylas OAuth
       window.location.href = result.authUrl;
     } catch (error) {
       console.error('Failed to initiate email auth:', error);
@@ -244,40 +255,40 @@ export default function UnifiedUpdates() {
   };
   
   // Handle action completion
-  const handleCompleteAction = async (updateId: Id<"updates">, actionIndex: number) => {
+  const handleCompleteAction = useCallback(async (updateId: Id<"updates">, actionIndex: number) => {
     try {
       await completeAction({ updateId, actionIndex });
     } catch (error) {
       console.error("Failed to complete action:", error);
+      // TODO: Add user-facing error notification
     }
-  };
+  }, [completeAction]);
   
   // Handle dismissing an update
-  const handleDismissUpdate = async (updateId: Id<"updates">) => {
+  const handleDismissUpdate = useCallback(async (updateId: Id<"updates">) => {
     try {
       await acknowledgeUpdate({ updateId });
     } catch (error) {
       console.error("Failed to dismiss update:", error);
+      // TODO: Add user-facing error notification
     }
-  };
+  }, [acknowledgeUpdate]);
   
   // Get unique sources from updates
   const availableSources = new Set(updates?.map(u => u.source) || []);
-  availableSources.add("email"); // Always show email option
+  availableSources.add("email");
   
   // Calculate active filters count
   const activeFiltersCount = 
     (categoryFilter !== "all" ? 1 : 0) + 
     (sourceFilter !== "all" ? 1 : 0);
   
-  // Build filter options for dropdown
-  const filterOptions = [
-    // Category header
+  // Build filter options for dropdown - memoized
+  const filterOptions = useMemo(() => [
     { label: "— CATEGORY —", onClick: () => {}, Icon: <Layers className="h-3 w-3" /> },
     { label: "All Categories", onClick: () => setCategoryFilter("all"), Icon: null },
     { label: "Fashion Ops", onClick: () => setCategoryFilter("fashion_ops"), Icon: null },
     { label: "General", onClick: () => setCategoryFilter("general"), Icon: null },
-    // Source header
     { label: "— SOURCE —", onClick: () => {}, Icon: <Tag className="h-3 w-3" /> },
     { label: `All Sources${stats ? ` (${stats.total})` : ''}`, onClick: () => setSourceFilter("all"), Icon: null },
     ...Array.from(availableSources).map(source => {
@@ -291,7 +302,6 @@ export default function UnifiedUpdates() {
         Icon: <Icon className="h-3.5 w-3.5" />
       };
     }).filter(Boolean),
-    // Clear filters option
     ...(activeFiltersCount > 0 ? [
       { label: "— ACTIONS —", onClick: () => {}, Icon: null },
       { 
@@ -303,7 +313,14 @@ export default function UnifiedUpdates() {
         Icon: <X className="h-3.5 w-3.5 text-red-600" />
       }
     ] : [])
-  ].filter(item => item !== null) as Array<{label: string; onClick: () => void; Icon: React.ReactNode | null}>;
+  ].filter(item => item !== null) as Array<{label: string; onClick: () => void; Icon: React.ReactNode | null}>, [stats, activeFiltersCount, availableSources]);
+  
+  // Filter updates by category - memoized for performance
+  const filteredUpdates = useMemo(() => {
+    if (!updates) return undefined;
+    if (categoryFilter === "all") return updates;
+    return updates.filter(update => update.category === categoryFilter);
+  }, [updates, categoryFilter]);
   
   if (!updates) {
     return (
@@ -314,9 +331,9 @@ export default function UnifiedUpdates() {
   }
   
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col" style={{ maxHeight: '600px' }}>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col" style={{ maxHeight: `${MAX_TABLE_HEIGHT}px` }}>
       {/* Header */}
-      <div className="p-5 border-b border-gray-200 flex-shrink-0">
+      <div className="p-4 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="heading-large">Recent Updates</h2>
@@ -327,7 +344,7 @@ export default function UnifiedUpdates() {
               options={filterOptions}
               activeFiltersCount={activeFiltersCount}
             >
-              <Filter className="h-4 w-4" />
+              <Filter className="h-3.5 w-3.5" />
               Filters
             </DropdownMenu>
             
@@ -336,18 +353,18 @@ export default function UnifiedUpdates() {
               <button
                 onClick={handleRefresh}
                 disabled={loading}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-xl backdrop-blur-sm disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-lg backdrop-blur-sm disabled:opacity-50 transition-colors"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? "Refreshing..." : "Refresh"}
               </button>
             ) : (
               <button
                 onClick={handleConnectEmail}
                 disabled={connecting}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-xl backdrop-blur-sm disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-lg backdrop-blur-sm disabled:opacity-50 transition-colors"
               >
-                <Mail className="h-4 w-4" />
+                <Mail className="h-3.5 w-3.5" />
                 {connecting ? "Connecting..." : "Connect Email"}
               </button>
             )}
@@ -363,50 +380,188 @@ export default function UnifiedUpdates() {
         )}
       </div>
       
-      {/* Updates list */}
-      <div className="divide-y divide-gray-100 overflow-y-auto flex-1">
-        {updates.length === 0 ? (
+      {/* Table */}
+      <div className="overflow-y-auto flex-1 relative">
+        {filteredUpdates && filteredUpdates.length === 0 ? (
           <div className="p-6 text-center body-text">
             No updates found. Try refreshing to fetch new updates.
           </div>
         ) : (
-          updates.map((update) => {
-            const isExpanded = expandedUpdates.has(update._id);
-            const sourceConf = sourceConfig[update.source as keyof typeof sourceConfig] || sourceConfig.manual;
-            const urgencyClass = getCategoryColor(update.category, update.urgency);
-            const SourceIcon = sourceConf.icon;
-            
-            // Format the update for better presentation
-            const { formattedTitle, formattedSummary } = formatUpdate(update);
-            
-            // Filter by category if needed
-            if (categoryFilter !== "all" && update.category !== categoryFilter) {
-              return null;
-            }
-            
-            return (
-              <div
-                key={update._id}
-                className={`py-5 px-6 hover:bg-gray-50 transition-colors ${urgencyClass}`}
-              >
-                <div className="flex items-start gap-4">
-                  {/* Source icon */}
-                  <div className={`p-2.5 rounded-lg ${sourceConf.color}`}>
-                    <SourceIcon className="h-5 w-5" />
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    {/* Header row */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <h3 className="action-text text-gray-900">
-                          {formattedTitle}
-                        </h3>
-                        <p className="body-text mt-1">
-                          {formattedSummary}
-                        </p>
+          <Table aria-label="Recent updates" selectionMode="multiple">
+            <TableHeader className="sticky top-0 z-10 bg-white border-b border-gray-200">
+              <Column width={40} minWidth={40}>
+                <Checkbox 
+                  slot="selection"
+                  isSelected={selectedUpdates.size === filteredUpdates?.length}
+                  onChange={() => toggleAllSelected()}
+                />
+              </Column>
+              <Column width={250} minWidth={200}>Source</Column>
+              <Column isRowHeader>Update</Column>
+              <Column width={280} minWidth={200}>SKU Update</Column>
+              <Column width={80} minWidth={80}>Actions</Column>
+            </TableHeader>
+            <TableBody>
+              {filteredUpdates?.map((update) => {
+                const isExpanded = expandedUpdates.has(update._id);
+                const isSelected = selectedUpdates.has(update._id);
+                const sourceConf = sourceConfig[update.source as keyof typeof sourceConfig] || sourceConfig.manual;
+                const { formattedTitle, formattedSummary } = formatUpdate(update);
+                
+                return (
+                  <Row key={update._id}>
+                    <Cell>
+                      <Checkbox 
+                        slot="selection"
+                        isSelected={isSelected}
+                        onChange={() => toggleSelected(update._id)}
+                      />
+                    </Cell>
+                    <Cell>
+                      <div className="flex items-start gap-2">
+                        <Mail className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div className="flex flex-col">
+                          <span className="body-text text-gray-700">
+                            {update.fromName || "Unknown sender"}
+                          </span>
+                          <span className="caption-text text-gray-500">
+                            {formatDateTime(update.createdAt)}
+                          </span>
+                        </div>
                       </div>
+                    </Cell>
+                    <Cell>
+                      <div className="space-y-1">
+                        <div className="action-text text-gray-900">{formattedTitle}</div>
+                        <div className="body-text text-gray-600">{formattedSummary}</div>
+                        
+                        {/* Expanded content */}
+                        {isExpanded && (
+                          <div className="mt-4 space-y-3 border-t pt-3">
+                            {/* Process Summary Box */}
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="action-text text-gray-700">Process</span>
+                                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                              </div>
+                              
+                              <div className="text-sm relative">
+                                {/* Source */}
+                                <div className="flex items-start gap-3 relative">
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                    <div className="w-px h-14 bg-gray-300"></div>
+                                  </div>
+                                  <div className="flex-1 pb-3">
+                                    <p className="caption-text mb-1.5">Source</p>
+                                    <div className="inline-flex items-center gap-2 bg-gray-100 rounded px-3 py-1.5 ml-2">
+                                      <sourceConf.icon className="h-4 w-4 text-gray-500" />
+                                      <span className="body-text text-gray-700">
+                                        {update.sourceSubject || update.title || "Update notification"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Read */}
+                                <div className="flex items-start gap-3 -mt-3">
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                    {(update.skuUpdates && update.skuUpdates.length > 0) && (
+                                      <div className="w-px h-20 bg-gray-300"></div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 pb-3">
+                                    <p className="caption-text mb-1.5">Read</p>
+                                    <p className="body-text italic ml-2">
+                                      {update.sourceQuote ? `"${update.sourceQuote}"` : 
+                                       update.summary ? `"${update.summary}"` : ""}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {/* Update/SKU Updates */}
+                                {update.skuUpdates && update.skuUpdates.length > 0 && (
+                                  <div className="flex items-start gap-3 -mt-3">
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                    </div>
+                                    <div className="flex-1 pb-3">
+                                      <p className="caption-text mb-1.5">Update</p>
+                                      <div className="ml-2 space-y-1.5">
+                                        {update.skuUpdates.map((sku, idx) => (
+                                          <div key={idx} className="flex items-center gap-3">
+                                            <span className="inline-block bg-gray-100 rounded px-2.5 py-1 font-mono body-text text-gray-700">
+                                              {sku.skuCode}
+                                            </span>
+                                            <span className="body-text text-gray-700">{sku.field}: {sku.newValue}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Action items */}
+                            {update.actionsNeeded && update.actionsNeeded.length > 0 && (
+                              <div className="bg-orange-50 rounded-lg p-3">
+                                <h4 className="caption-text font-semibold text-orange-900 mb-2">
+                                  Actions Required
+                                </h4>
+                                <div className="space-y-2">
+                                  {update.actionsNeeded.map((action, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={action.completed}
+                                        onChange={() => handleCompleteAction(update._id, idx)}
+                                        className="h-4 w-4 text-orange-600 rounded"
+                                        disabled={action.completed}
+                                      />
+                                      <span className={`body-text ${
+                                        action.completed ? "line-through text-gray-500" : "text-orange-800"
+                                      }`}>
+                                        {action.action}
+                                      </span>
+                                      {action.completedAt && (
+                                        <span className="caption-text">
+                                          ({formatTimeAgo(action.completedAt)})
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </Cell>
+                    <Cell>
+                      {update.skuUpdates && update.skuUpdates.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {update.skuUpdates.map((sku, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`inline-block ${badgeStyles.sku} px-2 py-0.5 rounded text-xs font-mono`}>
+                                {sku.skuCode}
+                              </span>
+                              <span className={`inline-block ${badgeStyles.field} px-2 py-0.5 rounded text-xs capitalize`}>
+                                {sku.field}
+                              </span>
+                              <span className="text-gray-400">→</span>
+                              <span className={`inline-block ${badgeStyles.value} px-2 py-0.5 rounded text-xs font-medium`}>
+                                {sku.newValue}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">—</span>
+                      )}
+                    </Cell>
+                    <Cell>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleDismissUpdate(update._id)}
@@ -426,149 +581,12 @@ export default function UnifiedUpdates() {
                           )}
                         </button>
                       </div>
-                    </div>
-                    
-                    {/* Metadata */}
-                    <div className="flex items-center gap-1.5 mt-3 caption-text">
-                      {update.fromName && (
-                        <>
-                          <span>from {update.fromName}</span>
-                          <span className="text-gray-400">•</span>
-                        </>
-                      )}
-                      <span>{formatTimeAgo(update.createdAt)}</span>
-                    </div>
-                    
-                    {/* SKU badges below metadata */}
-                    {update.skuUpdates && update.skuUpdates.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {update.skuUpdates.map((sku, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-block bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-mono"
-                          >
-                            {sku.skuCode}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Expanded content */}
-                    {isExpanded && (
-                      <div className="mt-4 space-y-3">
-                        {/* Process Summary Box */}
-                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                          {/* Process Header */}
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="action-text text-gray-700">Process</span>
-                            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-                          </div>
-                          
-                          {/* Process Steps */}
-                          <div className="text-sm relative">
-                            {/* Source */}
-                            <div className="flex items-start gap-3 relative">
-                              <div className="flex flex-col items-center">
-                                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                <div className="w-px h-14 bg-gray-300"></div>
-                              </div>
-                              <div className="flex-1 pb-3">
-                                <p className="caption-text mb-1.5">
-                                  Source
-                                </p>
-                                {/* Email icon with subject in grey box */}
-                                <div className="inline-flex items-center gap-2 bg-gray-100 rounded px-3 py-1.5 ml-2">
-                                  <sourceConf.icon className="h-4 w-4 text-gray-500" />
-                                  <span className="body-text text-gray-700">
-                                    {update.sourceSubject || update.title || "Update notification"}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Read */}
-                            <div className="flex items-start gap-3 -mt-3">
-                              <div className="flex flex-col items-center">
-                                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                {(update.skuUpdates && update.skuUpdates.length > 0) && (
-                                  <div className="w-px h-20 bg-gray-300"></div>
-                                )}
-                              </div>
-                              <div className="flex-1 pb-3">
-                                <p className="caption-text mb-1.5">
-                                  Read
-                                </p>
-                                <p className="body-text italic ml-2">
-                                  {update.sourceQuote ? `"${update.sourceQuote}"` : 
-                                   update.summary ? `"${update.summary}"` : ""}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {/* Update/SKU Updates */}
-                            {update.skuUpdates && update.skuUpdates.length > 0 && (
-                              <div className="flex items-start gap-3 -mt-3">
-                                <div className="flex flex-col items-center">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                </div>
-                                <div className="flex-1 pb-3">
-                                  <p className="caption-text mb-1.5">
-                                    Update
-                                  </p>
-                                  <div className="ml-2 space-y-1.5">
-                                    {update.skuUpdates.map((sku, idx) => (
-                                      <div key={idx} className="flex items-center gap-3">
-                                        <span className="inline-block bg-gray-100 rounded px-2.5 py-1 font-mono body-text text-gray-700">
-                                          {sku.skuCode}
-                                        </span>
-                                        <span className="body-text text-gray-700">{sku.field}: {sku.newValue}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Action items */}
-                        {update.actionsNeeded && update.actionsNeeded.length > 0 && (
-                          <div className="bg-orange-50 rounded-lg p-3">
-                            <h4 className="caption-text font-semibold text-orange-900 mb-2">
-                              Actions Required
-                            </h4>
-                            <div className="space-y-2">
-                              {update.actionsNeeded.map((action, idx) => (
-                                <div key={idx} className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={action.completed}
-                                    onChange={() => handleCompleteAction(update._id, idx)}
-                                    className="h-4 w-4 text-orange-600 rounded"
-                                    disabled={action.completed}
-                                  />
-                                  <span className={`body-text ${
-                                    action.completed ? "line-through text-gray-500" : "text-orange-800"
-                                  }`}>
-                                    {action.action}
-                                  </span>
-                                  {action.completedAt && (
-                                    <span className="caption-text">
-                                      ({formatTimeAgo(action.completedAt)})
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
+                    </Cell>
+                  </Row>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>

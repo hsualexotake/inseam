@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -37,13 +36,13 @@ const DropdownMenu = ({ options, children, activeFiltersCount }: DropdownMenuPro
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <Button
+      <button
         onClick={toggleDropdown}
-        className="px-4 py-2 bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-xl backdrop-blur-sm flex items-center gap-2"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-lg backdrop-blur-sm transition-colors"
       >
         {children ?? "Menu"}
         {activeFiltersCount !== undefined && activeFiltersCount > 0 && (
-          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-white/20 text-white text-xs">
+          <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-white/20 text-white text-xs">
             {activeFiltersCount}
           </span>
         )}
@@ -51,9 +50,9 @@ const DropdownMenu = ({ options, children, activeFiltersCount }: DropdownMenuPro
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.4, ease: "easeInOut", type: "spring" }}
         >
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-3.5 w-3.5" />
         </motion.span>
-      </Button>
+      </button>
 
       <AnimatePresence>
         {isOpen && (
@@ -62,7 +61,7 @@ const DropdownMenu = ({ options, children, activeFiltersCount }: DropdownMenuPro
             animate={{ y: 0, scale: 1, filter: "blur(0px)" }}
             exit={{ y: -5, scale: 0.95, opacity: 0, filter: "blur(10px)" }}
             transition={{ duration: 0.6, ease: "circInOut", type: "spring" }}
-            className="absolute z-10 w-48 mt-2 p-1 bg-[#11111198] rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.2)] backdrop-blur-sm flex flex-col gap-2 right-0"
+            className="absolute z-50 w-48 mt-2 p-1 bg-[#11111198] rounded-lg shadow-[0_0_20px_rgba(0,0,0,0.2)] backdrop-blur-sm flex flex-col gap-2 right-0"
           >
             {options && options.length > 0 ? (
               options.map((option) => {
