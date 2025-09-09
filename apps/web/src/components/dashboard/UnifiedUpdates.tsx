@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 // import { useRouter } from "next/navigation"; // Commented out - not currently used
 import { 
   Mail, MessageSquare, Phone, Package, Truck, AlertTriangle, 
   CheckCircle, ChevronDown, ChevronUp, 
-  Zap, Bell, RefreshCw, X
+  Zap, Bell, RefreshCw, X, Filter
 } from "lucide-react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
-import { getCategoryBadge, getCategoryColor } from "@/utils/categoryHelpers";
+import { getCategoryColor } from "@/utils/categoryHelpers";
 
 // Source configurations
 const sourceConfig = {
@@ -168,6 +168,8 @@ export default function UnifiedUpdates() {
   const [expandedUpdates, setExpandedUpdates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   // const router = useRouter(); // Commented out - not currently used
   
   // Fetch updates
@@ -264,6 +266,23 @@ export default function UnifiedUpdates() {
   const availableSources = new Set(updates?.map(u => u.source) || []);
   availableSources.add("email"); // Always show email option
   
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowFilterDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  
+  // Calculate active filters count
+  const activeFiltersCount = 
+    (categoryFilter !== "all" ? 1 : 0) + 
+    (sourceFilter !== "all" ? 1 : 0);
+  
   if (!updates) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
@@ -273,107 +292,154 @@ export default function UnifiedUpdates() {
   }
   
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col" style={{ maxHeight: '600px' }}>
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-5 border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Recent Updates</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-2xl font-bold text-gray-900">Recent Updates</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
               All updates from email, messaging, and manual entries
             </p>
           </div>
-          {emailConnection ? (
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
-          ) : (
-            <button
-              onClick={handleConnectEmail}
-              disabled={connecting}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              <Mail className="h-4 w-4" />
-              {connecting ? "Connecting..." : "Connect Email"}
-            </button>
-          )}
-        </div>
-        
-        {/* Category filters */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-medium text-gray-500 uppercase">Category:</span>
-          <button
-            onClick={() => setCategoryFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              categoryFilter === "all"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setCategoryFilter("fashion_ops")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              categoryFilter === "fashion_ops"
-                ? "bg-yellow-600 text-white"
-                : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-            }`}
-          >
-            📦 Fashion Ops
-          </button>
-          <button
-            onClick={() => setCategoryFilter("general")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              categoryFilter === "general"
-                ? "bg-blue-600 text-white"
-                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-            }`}
-          >
-            📧 General
-          </button>
-        </div>
-        
-        {/* Source filters */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setSourceFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              sourceFilter === "all"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            All Sources
-            {stats && <span className="ml-1.5 text-xs opacity-75">({stats.total})</span>}
-          </button>
-          {Array.from(availableSources).map(source => {
-            const config = sourceConfig[source as keyof typeof sourceConfig];
-            if (!config) return null;
-            const Icon = config.icon;
-            const count = stats?.sources[source] || 0;
-            
-            return (
+          <div className="flex items-center gap-2">
+            {/* Unified Filter Dropdown */}
+            <div className="relative" ref={dropdownRef}>
               <button
-                key={source}
-                onClick={() => setSourceFilter(source)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  sourceFilter === source
-                    ? "bg-gray-900 text-white"
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeFiltersCount > 0
+                    ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
-                {config.label}
-                {count > 0 && <span className="text-xs opacity-75">({count})</span>}
+                <Filter className="h-4 w-4" />
+                Filters
+                {activeFiltersCount > 0 && (
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-600 text-white text-xs">
+                    {activeFiltersCount}
+                  </span>
+                )}
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${
+                  showFilterDropdown ? "rotate-180" : ""
+                }`} />
               </button>
-            );
-          })}
+              
+              {/* Dropdown menu */}
+              {showFilterDropdown && (
+                <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10 min-w-[240px]">
+                  {/* Category Section */}
+                  <div className="px-3 pb-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Category</p>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => setCategoryFilter("all")}
+                        className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors ${
+                          categoryFilter === "all" ? "bg-gray-100 font-medium" : ""
+                        }`}
+                      >
+                        All Categories
+                      </button>
+                      <button
+                        onClick={() => setCategoryFilter("fashion_ops")}
+                        className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                          categoryFilter === "fashion_ops" ? "bg-gray-100 font-medium" : ""
+                        }`}
+                      >
+                        📦 Fashion Ops
+                      </button>
+                      <button
+                        onClick={() => setCategoryFilter("general")}
+                        className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                          categoryFilter === "general" ? "bg-gray-100 font-medium" : ""
+                        }`}
+                      >
+                        📧 General
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="border-t border-gray-200 my-2"></div>
+                  
+                  {/* Source Section */}
+                  <div className="px-3 pt-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Source</p>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => setSourceFilter("all")}
+                        className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors ${
+                          sourceFilter === "all" ? "bg-gray-100 font-medium" : ""
+                        }`}
+                      >
+                        All Sources
+                        {stats && <span className="ml-2 text-xs text-gray-500">({stats.total})</span>}
+                      </button>
+                      {Array.from(availableSources).map(source => {
+                        const config = sourceConfig[source as keyof typeof sourceConfig];
+                        if (!config) return null;
+                        const Icon = config.icon;
+                        const count = stats?.sources[source] || 0;
+                        
+                        return (
+                          <button
+                            key={source}
+                            onClick={() => setSourceFilter(source)}
+                            className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                              sourceFilter === source ? "bg-gray-100 font-medium" : ""
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {config.label}
+                            {count > 0 && <span className="ml-auto text-xs text-gray-500">({count})</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Clear Filters Button */}
+                  {activeFiltersCount > 0 && (
+                    <>
+                      <div className="border-t border-gray-200 my-2"></div>
+                      <div className="px-3">
+                        <button
+                          onClick={() => {
+                            setCategoryFilter("all");
+                            setSourceFilter("all");
+                          }}
+                          className="w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+                        >
+                          Clear all filters
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {/* Refresh/Connect Button */}
+            {emailConnection ? (
+              <button
+                onClick={handleRefresh}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? "Refreshing..." : "Refresh"}
+              </button>
+            ) : (
+              <button
+                onClick={handleConnectEmail}
+                disabled={connecting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                <Mail className="h-4 w-4" />
+                {connecting ? "Connecting..." : "Connect Email"}
+              </button>
+            )}
+          </div>
         </div>
         
         {/* Stats summary */}
@@ -386,9 +452,9 @@ export default function UnifiedUpdates() {
       </div>
       
       {/* Updates list */}
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-gray-100 overflow-y-auto flex-1">
         {updates.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-6 text-center text-gray-500 text-sm">
             No updates found. Try refreshing to fetch new updates.
           </div>
         ) : (
@@ -397,7 +463,6 @@ export default function UnifiedUpdates() {
             const sourceConf = sourceConfig[update.source as keyof typeof sourceConfig] || sourceConfig.manual;
             const typeConf = typeConfig[update.type as keyof typeof typeConfig] || typeConfig.general;
             const urgencyClass = getCategoryColor(update.category, update.urgency);
-            const SourceIcon = sourceConf.icon;
             const TypeIcon = typeConf.icon;
             
             // Format the update for better presentation
@@ -411,12 +476,12 @@ export default function UnifiedUpdates() {
             return (
               <div
                 key={update._id}
-                className={`p-4 hover:bg-gray-50 transition-colors ${urgencyClass}`}
+                className={`py-5 px-6 hover:bg-gray-50 transition-colors ${urgencyClass}`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-4">
                   {/* Type icon */}
-                  <div className={`p-2 rounded-lg ${typeConf.color}`}>
-                    <TypeIcon className="h-4 w-4" />
+                  <div className={`p-2.5 rounded-lg ${typeConf.color}`}>
+                    <TypeIcon className="h-5 w-5" />
                   </div>
                   
                   {/* Content */}
@@ -424,7 +489,7 @@ export default function UnifiedUpdates() {
                     {/* Header row */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900 text-sm">
+                        <h3 className="font-semibold text-gray-900 text-base">
                           {formattedTitle}
                         </h3>
                         <p className="text-sm text-gray-600 mt-1">
@@ -453,65 +518,101 @@ export default function UnifiedUpdates() {
                     </div>
                     
                     {/* Metadata */}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${sourceConf.color}`}>
-                        <SourceIcon className="h-3 w-3" />
-                        {sourceConf.label}
-                      </span>
-                      {getCategoryBadge(update.category)}
+                    <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-500">
+                      <span className="font-medium text-gray-600">{sourceConf.label}</span>
                       {update.fromName && (
-                        <span>from {update.fromName}</span>
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span>from {update.fromName}</span>
+                        </>
                       )}
+                      <span className="text-gray-400">•</span>
                       <span>{formatTimeAgo(update.createdAt)}</span>
                       {update.processed && (
-                        <span className="text-green-600">✓ Processed</span>
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span className="text-green-600">✓ Processed</span>
+                        </>
                       )}
                     </div>
                     
                     {/* Expanded content */}
                     {isExpanded && (
                       <div className="mt-4 space-y-3">
-                        {/* Source quote */}
-                        {update.sourceQuote && (
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-start gap-2">
-                              <Mail className="h-4 w-4 text-gray-400 mt-0.5" />
-                              <div>
-                                <p className="text-xs font-medium text-gray-600 mb-1">
-                                  Source: {update.sourceSubject || "Email"}
+                        {/* Process Summary Box */}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                          {/* Process Header */}
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-sm font-medium text-gray-700">Process</span>
+                            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                          </div>
+                          
+                          {/* Process Steps */}
+                          <div className="text-sm relative">
+                            {/* Source */}
+                            <div className="flex items-start gap-3 relative">
+                              <div className="flex flex-col items-center">
+                                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                <div className="w-px h-14 bg-gray-300"></div>
+                              </div>
+                              <div className="flex-1 pb-3">
+                                <p className="text-xs text-gray-500 mb-1.5">
+                                  Source
                                 </p>
-                                <p className="text-sm text-gray-700 italic">
-                                  &ldquo;{update.sourceQuote}&rdquo;
+                                {/* Email icon with subject in grey box */}
+                                <div className="inline-flex items-center gap-2 bg-gray-100 rounded px-3 py-1.5 ml-2">
+                                  <sourceConf.icon className="h-4 w-4 text-gray-500" />
+                                  <span className="text-sm text-gray-700">
+                                    {update.sourceSubject || update.title || "Update notification"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Read */}
+                            <div className="flex items-start gap-3 -mt-3">
+                              <div className="flex flex-col items-center">
+                                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                {(update.skuUpdates && update.skuUpdates.length > 0) && (
+                                  <div className="w-px h-20 bg-gray-300"></div>
+                                )}
+                              </div>
+                              <div className="flex-1 pb-3">
+                                <p className="text-xs text-gray-500 mb-1.5">
+                                  Read
+                                </p>
+                                <p className="text-sm text-gray-600 italic ml-2">
+                                  {update.sourceQuote ? `"${update.sourceQuote}"` : 
+                                   update.summary ? `"${update.summary}"` : ""}
                                 </p>
                               </div>
                             </div>
-                          </div>
-                        )}
-                        
-                        {/* SKU Updates */}
-                        {update.skuUpdates && update.skuUpdates.length > 0 && (
-                          <div className="bg-blue-50 rounded-lg p-3">
-                            <h4 className="text-xs font-medium text-blue-900 mb-2">
-                              SKU Updates
-                            </h4>
-                            <div className="space-y-1">
-                              {update.skuUpdates.map((sku, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-sm">
-                                  <span className="font-mono text-blue-800">{sku.skuCode}</span>
-                                  <span className="text-blue-700">
-                                    {sku.field}: {sku.oldValue && `${sku.oldValue} → `}{sku.newValue}
-                                  </span>
-                                  <span className={`text-xs ${
-                                    sku.confidence >= 0.8 ? "text-green-600" : 
-                                    sku.confidence >= 0.5 ? "text-yellow-600" : "text-red-600"
-                                  }`}>
-                                    {(sku.confidence * 100).toFixed(0)}%
-                                  </span>
+                            
+                            {/* Update/SKU Updates */}
+                            {update.skuUpdates && update.skuUpdates.length > 0 && (
+                              <div className="flex items-start gap-3 -mt-3">
+                                <div className="flex flex-col items-center">
+                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                                 </div>
-                              ))}
-                            </div>
+                                <div className="flex-1 pb-3">
+                                  <p className="text-xs text-gray-500 mb-1.5">
+                                    Update
+                                  </p>
+                                  <div className="ml-2 space-y-1.5">
+                                    {update.skuUpdates.map((sku, idx) => (
+                                      <div key={idx} className="flex items-center gap-3">
+                                        <span className="inline-block bg-gray-100 rounded px-2.5 py-1 font-mono text-sm text-gray-700">
+                                          {sku.skuCode}
+                                        </span>
+                                        <span className="text-sm text-gray-700">{sku.field}: {sku.newValue}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                         
                         {/* Action items */}
                         {update.actionsNeeded && update.actionsNeeded.length > 0 && (
