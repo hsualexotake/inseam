@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 // import { useRouter } from "next/navigation"; // Commented out - not currently used
 import { 
   Mail, MessageSquare, Phone, Package, Truck, AlertTriangle, 
   CheckCircle, ChevronDown, ChevronUp, 
-  Zap, Bell, RefreshCw, X, Filter
+  Zap, Bell, RefreshCw, X, Filter, Layers, Tag
 } from "lucide-react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { getCategoryColor } from "@/utils/categoryHelpers";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
 // Source configurations
 const sourceConfig = {
@@ -168,8 +169,6 @@ export default function UnifiedUpdates() {
   const [expandedUpdates, setExpandedUpdates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   // const router = useRouter(); // Commented out - not currently used
   
   // Fetch updates
@@ -266,22 +265,45 @@ export default function UnifiedUpdates() {
   const availableSources = new Set(updates?.map(u => u.source) || []);
   availableSources.add("email"); // Always show email option
   
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowFilterDropdown(false);
-      }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-  
   // Calculate active filters count
   const activeFiltersCount = 
     (categoryFilter !== "all" ? 1 : 0) + 
     (sourceFilter !== "all" ? 1 : 0);
+  
+  // Build filter options for dropdown
+  const filterOptions = [
+    // Category header
+    { label: "— CATEGORY —", onClick: () => {}, Icon: <Layers className="h-3 w-3" /> },
+    { label: "All Categories", onClick: () => setCategoryFilter("all"), Icon: null },
+    { label: "Fashion Ops", onClick: () => setCategoryFilter("fashion_ops"), Icon: null },
+    { label: "General", onClick: () => setCategoryFilter("general"), Icon: null },
+    // Source header
+    { label: "— SOURCE —", onClick: () => {}, Icon: <Tag className="h-3 w-3" /> },
+    { label: `All Sources${stats ? ` (${stats.total})` : ''}`, onClick: () => setSourceFilter("all"), Icon: null },
+    ...Array.from(availableSources).map(source => {
+      const config = sourceConfig[source as keyof typeof sourceConfig];
+      if (!config) return null;
+      const Icon = config.icon;
+      const count = stats?.sources[source] || 0;
+      return {
+        label: `${config.label}${count > 0 ? ` (${count})` : ''}`,
+        onClick: () => setSourceFilter(source),
+        Icon: <Icon className="h-3.5 w-3.5" />
+      };
+    }).filter(Boolean),
+    // Clear filters option
+    ...(activeFiltersCount > 0 ? [
+      { label: "— ACTIONS —", onClick: () => {}, Icon: null },
+      { 
+        label: "Clear all filters", 
+        onClick: () => {
+          setCategoryFilter("all");
+          setSourceFilter("all");
+        },
+        Icon: <X className="h-3.5 w-3.5 text-red-600" />
+      }
+    ] : [])
+  ].filter(item => item !== null) as Array<{label: string; onClick: () => void; Icon: React.ReactNode | null}>;
   
   if (!updates) {
     return (
@@ -297,134 +319,24 @@ export default function UnifiedUpdates() {
       <div className="p-5 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Recent Updates</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
-              All updates from email, messaging, and manual entries
-            </p>
+            <h2 className="heading-large">Recent Updates</h2>
           </div>
           <div className="flex items-center gap-2">
-            {/* Unified Filter Dropdown */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeFiltersCount > 0
-                    ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-                {activeFiltersCount > 0 && (
-                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-600 text-white text-xs">
-                    {activeFiltersCount}
-                  </span>
-                )}
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${
-                  showFilterDropdown ? "rotate-180" : ""
-                }`} />
-              </button>
-              
-              {/* Dropdown menu */}
-              {showFilterDropdown && (
-                <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10 min-w-[240px]">
-                  {/* Category Section */}
-                  <div className="px-3 pb-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Category</p>
-                    <div className="space-y-1">
-                      <button
-                        onClick={() => setCategoryFilter("all")}
-                        className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors ${
-                          categoryFilter === "all" ? "bg-gray-100 font-medium" : ""
-                        }`}
-                      >
-                        All Categories
-                      </button>
-                      <button
-                        onClick={() => setCategoryFilter("fashion_ops")}
-                        className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          categoryFilter === "fashion_ops" ? "bg-gray-100 font-medium" : ""
-                        }`}
-                      >
-                        📦 Fashion Ops
-                      </button>
-                      <button
-                        onClick={() => setCategoryFilter("general")}
-                        className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          categoryFilter === "general" ? "bg-gray-100 font-medium" : ""
-                        }`}
-                      >
-                        📧 General
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Divider */}
-                  <div className="border-t border-gray-200 my-2"></div>
-                  
-                  {/* Source Section */}
-                  <div className="px-3 pt-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Source</p>
-                    <div className="space-y-1">
-                      <button
-                        onClick={() => setSourceFilter("all")}
-                        className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors ${
-                          sourceFilter === "all" ? "bg-gray-100 font-medium" : ""
-                        }`}
-                      >
-                        All Sources
-                        {stats && <span className="ml-2 text-xs text-gray-500">({stats.total})</span>}
-                      </button>
-                      {Array.from(availableSources).map(source => {
-                        const config = sourceConfig[source as keyof typeof sourceConfig];
-                        if (!config) return null;
-                        const Icon = config.icon;
-                        const count = stats?.sources[source] || 0;
-                        
-                        return (
-                          <button
-                            key={source}
-                            onClick={() => setSourceFilter(source)}
-                            className={`w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                              sourceFilter === source ? "bg-gray-100 font-medium" : ""
-                            }`}
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                            {config.label}
-                            {count > 0 && <span className="ml-auto text-xs text-gray-500">({count})</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  
-                  {/* Clear Filters Button */}
-                  {activeFiltersCount > 0 && (
-                    <>
-                      <div className="border-t border-gray-200 my-2"></div>
-                      <div className="px-3">
-                        <button
-                          onClick={() => {
-                            setCategoryFilter("all");
-                            setSourceFilter("all");
-                          }}
-                          className="w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
-                        >
-                          Clear all filters
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Filter Dropdown using new component */}
+            <DropdownMenu
+              options={filterOptions}
+              activeFiltersCount={activeFiltersCount}
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+            </DropdownMenu>
             
             {/* Refresh/Connect Button */}
             {emailConnection ? (
               <button
                 onClick={handleRefresh}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-xl backdrop-blur-sm disabled:opacity-50 transition-colors"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? "Refreshing..." : "Refresh"}
@@ -433,7 +345,7 @@ export default function UnifiedUpdates() {
               <button
                 onClick={handleConnectEmail}
                 disabled={connecting}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-xl backdrop-blur-sm disabled:opacity-50 transition-colors"
               >
                 <Mail className="h-4 w-4" />
                 {connecting ? "Connecting..." : "Connect Email"}
@@ -444,7 +356,7 @@ export default function UnifiedUpdates() {
         
         {/* Stats summary */}
         {stats && stats.pendingActions > 0 && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-orange-600">
+          <div className="mt-3 flex items-center gap-2 body-text text-orange-600">
             <Zap className="h-4 w-4" />
             {stats.pendingActions} pending action{stats.pendingActions > 1 ? 's' : ''}
           </div>
@@ -454,16 +366,15 @@ export default function UnifiedUpdates() {
       {/* Updates list */}
       <div className="divide-y divide-gray-100 overflow-y-auto flex-1">
         {updates.length === 0 ? (
-          <div className="p-6 text-center text-gray-500 text-sm">
+          <div className="p-6 text-center body-text">
             No updates found. Try refreshing to fetch new updates.
           </div>
         ) : (
           updates.map((update) => {
             const isExpanded = expandedUpdates.has(update._id);
             const sourceConf = sourceConfig[update.source as keyof typeof sourceConfig] || sourceConfig.manual;
-            const typeConf = typeConfig[update.type as keyof typeof typeConfig] || typeConfig.general;
             const urgencyClass = getCategoryColor(update.category, update.urgency);
-            const TypeIcon = typeConf.icon;
+            const SourceIcon = sourceConf.icon;
             
             // Format the update for better presentation
             const { formattedTitle, formattedSummary } = formatUpdate(update);
@@ -479,9 +390,9 @@ export default function UnifiedUpdates() {
                 className={`py-5 px-6 hover:bg-gray-50 transition-colors ${urgencyClass}`}
               >
                 <div className="flex items-start gap-4">
-                  {/* Type icon */}
-                  <div className={`p-2.5 rounded-lg ${typeConf.color}`}>
-                    <TypeIcon className="h-5 w-5" />
+                  {/* Source icon */}
+                  <div className={`p-2.5 rounded-lg ${sourceConf.color}`}>
+                    <SourceIcon className="h-5 w-5" />
                   </div>
                   
                   {/* Content */}
@@ -489,10 +400,10 @@ export default function UnifiedUpdates() {
                     {/* Header row */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 text-base">
+                        <h3 className="action-text text-gray-900">
                           {formattedTitle}
                         </h3>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="body-text mt-1">
                           {formattedSummary}
                         </p>
                       </div>
@@ -518,23 +429,29 @@ export default function UnifiedUpdates() {
                     </div>
                     
                     {/* Metadata */}
-                    <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-500">
-                      <span className="font-medium text-gray-600">{sourceConf.label}</span>
+                    <div className="flex items-center gap-1.5 mt-3 caption-text">
                       {update.fromName && (
                         <>
-                          <span className="text-gray-400">•</span>
                           <span>from {update.fromName}</span>
-                        </>
-                      )}
-                      <span className="text-gray-400">•</span>
-                      <span>{formatTimeAgo(update.createdAt)}</span>
-                      {update.processed && (
-                        <>
                           <span className="text-gray-400">•</span>
-                          <span className="text-green-600">✓ Processed</span>
                         </>
                       )}
+                      <span>{formatTimeAgo(update.createdAt)}</span>
                     </div>
+                    
+                    {/* SKU badges below metadata */}
+                    {update.skuUpdates && update.skuUpdates.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {update.skuUpdates.map((sku, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-block bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-mono"
+                          >
+                            {sku.skuCode}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     
                     {/* Expanded content */}
                     {isExpanded && (
@@ -543,7 +460,7 @@ export default function UnifiedUpdates() {
                         <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                           {/* Process Header */}
                           <div className="flex items-center gap-2 mb-3">
-                            <span className="text-sm font-medium text-gray-700">Process</span>
+                            <span className="action-text text-gray-700">Process</span>
                             <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                           </div>
                           
@@ -556,13 +473,13 @@ export default function UnifiedUpdates() {
                                 <div className="w-px h-14 bg-gray-300"></div>
                               </div>
                               <div className="flex-1 pb-3">
-                                <p className="text-xs text-gray-500 mb-1.5">
+                                <p className="caption-text mb-1.5">
                                   Source
                                 </p>
                                 {/* Email icon with subject in grey box */}
                                 <div className="inline-flex items-center gap-2 bg-gray-100 rounded px-3 py-1.5 ml-2">
                                   <sourceConf.icon className="h-4 w-4 text-gray-500" />
-                                  <span className="text-sm text-gray-700">
+                                  <span className="body-text text-gray-700">
                                     {update.sourceSubject || update.title || "Update notification"}
                                   </span>
                                 </div>
@@ -578,10 +495,10 @@ export default function UnifiedUpdates() {
                                 )}
                               </div>
                               <div className="flex-1 pb-3">
-                                <p className="text-xs text-gray-500 mb-1.5">
+                                <p className="caption-text mb-1.5">
                                   Read
                                 </p>
-                                <p className="text-sm text-gray-600 italic ml-2">
+                                <p className="body-text italic ml-2">
                                   {update.sourceQuote ? `"${update.sourceQuote}"` : 
                                    update.summary ? `"${update.summary}"` : ""}
                                 </p>
@@ -595,16 +512,16 @@ export default function UnifiedUpdates() {
                                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                                 </div>
                                 <div className="flex-1 pb-3">
-                                  <p className="text-xs text-gray-500 mb-1.5">
+                                  <p className="caption-text mb-1.5">
                                     Update
                                   </p>
                                   <div className="ml-2 space-y-1.5">
                                     {update.skuUpdates.map((sku, idx) => (
                                       <div key={idx} className="flex items-center gap-3">
-                                        <span className="inline-block bg-gray-100 rounded px-2.5 py-1 font-mono text-sm text-gray-700">
+                                        <span className="inline-block bg-gray-100 rounded px-2.5 py-1 font-mono body-text text-gray-700">
                                           {sku.skuCode}
                                         </span>
-                                        <span className="text-sm text-gray-700">{sku.field}: {sku.newValue}</span>
+                                        <span className="body-text text-gray-700">{sku.field}: {sku.newValue}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -617,7 +534,7 @@ export default function UnifiedUpdates() {
                         {/* Action items */}
                         {update.actionsNeeded && update.actionsNeeded.length > 0 && (
                           <div className="bg-orange-50 rounded-lg p-3">
-                            <h4 className="text-xs font-medium text-orange-900 mb-2">
+                            <h4 className="caption-text font-semibold text-orange-900 mb-2">
                               Actions Required
                             </h4>
                             <div className="space-y-2">
@@ -630,13 +547,13 @@ export default function UnifiedUpdates() {
                                     className="h-4 w-4 text-orange-600 rounded"
                                     disabled={action.completed}
                                   />
-                                  <span className={`text-sm ${
+                                  <span className={`body-text ${
                                     action.completed ? "line-through text-gray-500" : "text-orange-800"
                                   }`}>
                                     {action.action}
                                   </span>
                                   {action.completedAt && (
-                                    <span className="text-xs text-gray-500">
+                                    <span className="caption-text">
                                       ({formatTimeAgo(action.completedAt)})
                                     </span>
                                   )}

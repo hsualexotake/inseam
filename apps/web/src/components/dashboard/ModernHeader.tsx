@@ -17,17 +17,14 @@ export default function ModernHeader() {
     <div className="mb-8">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="heading-large">
             Hello, {firstName}
           </h1>
-          <p className="text-gray-500 text-lg">
-            Track team progress here. You almost reach a goal!
-          </p>
         </div>
         
         <div className="flex items-center gap-2 text-gray-600">
           <Calendar className="w-5 h-5" />
-          <span className="text-sm font-medium">{currentDate}</span>
+          <span className="body-text">{currentDate}</span>
         </div>
       </div>
     </div>

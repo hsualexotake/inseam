@@ -73,7 +73,7 @@ export default function SimpleSKUTracking() {
     if (!confidence) return null;
     const color = confidence >= 0.8 ? "text-green-500" : confidence >= 0.5 ? "text-yellow-500" : "text-red-500";
     return (
-      <span className={`text-xs ${color}`} title={`Confidence: ${(confidence * 100).toFixed(0)}%`}>
+      <span className={`caption-text ${color}`} title={`Confidence: ${(confidence * 100).toFixed(0)}%`}>
         ●
       </span>
     );
@@ -105,7 +105,7 @@ export default function SimpleSKUTracking() {
             <RefreshCw className={`h-4 w-4 ${isInitializing ? 'animate-spin' : ''}`} />
             {isInitializing ? "Initializing..." : "Load Sample Data"}
           </button>
-          <p className="text-xs text-gray-400">
+          <p className="caption-text text-gray-400">
             SKUs will be added automatically when you process emails
           </p>
         </div>
@@ -116,8 +116,7 @@ export default function SimpleSKUTracking() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">SKU Tracking</h2>
-        <p className="text-sm text-gray-500">Real-time tracking information from email updates</p>
+        <h2 className="heading-large">SKU Tracking</h2>
       </div>
 
       {/* Filters */}
@@ -151,25 +150,25 @@ export default function SimpleSKUTracking() {
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+              <th className="px-6 py-4 text-left caption-text font-semibold uppercase">
                 SKU Code
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+              <th className="px-6 py-4 text-left caption-text font-semibold uppercase">
                 Product
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+              <th className="px-6 py-4 text-left caption-text font-semibold uppercase">
                 Tracking
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+              <th className="px-6 py-4 text-left caption-text font-semibold uppercase">
                 Status
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+              <th className="px-6 py-4 text-left caption-text font-semibold uppercase">
                 Delivery
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+              <th className="px-6 py-4 text-left caption-text font-semibold uppercase">
                 Source
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+              <th className="px-6 py-4 text-left caption-text font-semibold uppercase">
                 Actions
               </th>
             </tr>
@@ -190,17 +189,17 @@ export default function SimpleSKUTracking() {
                 return (
                   <tr key={sku._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-mono text-gray-900">
+                      <span className="body-text font-mono text-gray-900">
                         {sku.skuCode}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="action-text text-gray-900">
                           {sku.productName}
                         </div>
                         {sku.category && (
-                          <div className="text-xs text-gray-500">
+                          <div className="caption-text">
                             {sku.category}
                             {sku.color && ` • ${sku.color}`}
                             {sku.size && ` • ${sku.size}`}
@@ -209,23 +208,23 @@ export default function SimpleSKUTracking() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-mono text-gray-600">
+                      <span className="body-text font-mono text-gray-600">
                         {sku.trackingNumber || "—"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full caption-text font-semibold ${statusInfo.color}`}>
                         <StatusIcon className="h-3 w-3" />
                         {statusInfo.label}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap body-text text-gray-900">
                       {formatDate(sku.deliveryDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         {getConfidenceIndicator(sku.lastUpdateConfidence)}
-                        <span className="text-xs text-gray-500">
+                        <span className="caption-text">
                           {sku.lastUpdatedFrom === "manual" ? "Manual" : "Email"}
                         </span>
                       </div>
@@ -236,7 +235,7 @@ export default function SimpleSKUTracking() {
                           setSelectedSKU(sku);
                           setIsUpdateDialogOpen(true);
                         }}
-                        className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg font-medium transition-all"
+                        className="px-3 py-1.5 action-text text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition-all"
                       >
                         Update
                       </button>
@@ -253,10 +252,10 @@ export default function SimpleSKUTracking() {
       {isUpdateDialogOpen && selectedSKU && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Update {selectedSKU.skuCode}</h3>
+            <h3 className="heading-small mb-4">Update {selectedSKU.skuCode}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block action-text text-gray-700 mb-1">
                   Tracking Number
                 </label>
                 <input
@@ -267,7 +266,7 @@ export default function SimpleSKUTracking() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block action-text text-gray-700 mb-1">
                   Status
                 </label>
                 <select 
@@ -283,7 +282,7 @@ export default function SimpleSKUTracking() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block action-text text-gray-700 mb-1">
                   Delivery Date
                 </label>
                 <input
