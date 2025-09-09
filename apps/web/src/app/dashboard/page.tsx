@@ -115,7 +115,7 @@ export default function DashboardPage() {
           <div className="p-6 pt-8">
             <ModernHeader />
             
-            <div className="mb-8">
+            <div className="mb-8 mx-auto" style={{ maxWidth: '84rem' }}>
               <UnifiedUpdates />
             </div>
             
