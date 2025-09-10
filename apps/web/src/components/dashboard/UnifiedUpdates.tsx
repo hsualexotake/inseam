@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation, useAction, usePaginatedQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { 
   Mail, ChevronDown, ChevronUp, 
-  RefreshCw, X, Filter, Layers, Tag, Zap
+  RefreshCw, X, Filter, Layers, Tag, Zap,
+  CheckCircle, XCircle
 } from "lucide-react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -20,7 +21,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   MAX_TABLE_HEIGHT,
-  UPDATES_FETCH_LIMIT,
   EMAIL_FETCH_COUNT,
   sourceConfig,
   getTypeConfig,
@@ -55,6 +55,12 @@ interface Update {
   }>;
   createdAt: number;
   processed: boolean;
+  skuUpdatesApproved?: boolean;
+  skuUpdatesApprovedAt?: number;
+  skuUpdatesApprovedBy?: string;
+  skuUpdatesRejected?: boolean;
+  skuUpdatesRejectedAt?: number;
+  skuUpdatesRejectedBy?: string;
 }
 
 // Helper function to extract SKU from text
@@ -141,22 +147,34 @@ export default function UnifiedUpdates() {
   const [selectedUpdates, setSelectedUpdates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [processingUpdates, setProcessingUpdates] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<"active" | "archived">("active");
   
-  // Fetch updates
-  const updatesQuery = useQuery(api.updates.getRecentUpdates, {
-    source: sourceFilter === "all" ? undefined : sourceFilter,
-    limit: UPDATES_FETCH_LIMIT,
-  });
+  // Fetch paginated updates
+  const {
+    results: paginatedUpdates,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.updates.getUpdates,
+    { 
+      viewMode,
+      source: sourceFilter === "all" ? undefined : sourceFilter,
+    },
+    { initialNumItems: 20 }
+  );
   
   // Type-safe updates with validation
   const updates = useMemo(() => {
-    if (!updatesQuery) return undefined;
-    return Array.isArray(updatesQuery) ? updatesQuery as Update[] : undefined;
-  }, [updatesQuery]);
+    if (!paginatedUpdates) return undefined;
+    return paginatedUpdates as Update[];
+  }, [paginatedUpdates]);
   
   const stats = useQuery(api.updates.getUpdateStats);
   const completeAction = useMutation(api.updates.completeAction);
   const acknowledgeUpdate = useMutation(api.updates.acknowledgeUpdate);
+  const approveSKUUpdates = useMutation(api.updates.approveSKUUpdates);
+  const rejectSKUUpdates = useMutation(api.updates.rejectSKUUpdates);
   const summarizeEmails = useAction(api.emails.summarizeInbox);
   const emailConnection = useQuery(api.emails.getEmailConnection);
   const initiateEmailAuth = useAction(api.nylas.actions.initiateNylasAuth);
@@ -264,6 +282,44 @@ export default function UnifiedUpdates() {
     }
   }, [completeAction]);
   
+  // Handle approving SKU updates
+  const handleApproveSKUUpdates = useCallback(async (updateId: Id<"updates">) => {
+    if (processingUpdates.has(updateId)) return;
+    
+    setProcessingUpdates(prev => new Set(prev).add(updateId));
+    try {
+      await approveSKUUpdates({ updateId });
+    } catch (error: any) {
+      alert(`Failed to approve: ${error?.message || 'Unknown error'}`);
+      console.error("Failed to approve SKU updates:", error);
+    } finally {
+      setProcessingUpdates(prev => {
+        const next = new Set(prev);
+        next.delete(updateId);
+        return next;
+      });
+    }
+  }, [approveSKUUpdates, processingUpdates]);
+  
+  // Handle rejecting SKU updates
+  const handleRejectSKUUpdates = useCallback(async (updateId: Id<"updates">) => {
+    if (processingUpdates.has(updateId)) return;
+    
+    setProcessingUpdates(prev => new Set(prev).add(updateId));
+    try {
+      await rejectSKUUpdates({ updateId });
+    } catch (error: any) {
+      alert(`Failed to reject: ${error?.message || 'Unknown error'}`);
+      console.error("Failed to reject SKU updates:", error);
+    } finally {
+      setProcessingUpdates(prev => {
+        const next = new Set(prev);
+        next.delete(updateId);
+        return next;
+      });
+    }
+  }, [rejectSKUUpdates, processingUpdates]);
+  
   // Handle dismissing an update
   const handleDismissUpdate = useCallback(async (updateId: Id<"updates">) => {
     try {
@@ -334,7 +390,7 @@ export default function UnifiedUpdates() {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col" style={{ maxHeight: `${MAX_TABLE_HEIGHT}px` }}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex-shrink-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="heading-large">Recent Updates</h2>
           </div>
@@ -344,7 +400,7 @@ export default function UnifiedUpdates() {
               options={filterOptions}
               activeFiltersCount={activeFiltersCount}
             >
-              <Filter className="h-3.5 w-3.5" />
+              <Filter className="h-3 w-3" />
               Filters
             </DropdownMenu>
             
@@ -353,22 +409,46 @@ export default function UnifiedUpdates() {
               <button
                 onClick={handleRefresh}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-lg backdrop-blur-sm disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-md backdrop-blur-sm disabled:opacity-50 transition-colors"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? "Refreshing..." : "Refresh"}
               </button>
             ) : (
               <button
                 onClick={handleConnectEmail}
                 disabled={connecting}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-lg backdrop-blur-sm disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-md backdrop-blur-sm disabled:opacity-50 transition-colors"
               >
-                <Mail className="h-3.5 w-3.5" />
+                <Mail className="h-3 w-3" />
                 {connecting ? "Connecting..." : "Connect Email"}
               </button>
             )}
           </div>
+        </div>
+        
+        {/* View mode toggle */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode("active")}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              viewMode === "active" 
+                ? "bg-gray-900 text-white" 
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setViewMode("archived")}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              viewMode === "archived" 
+                ? "bg-gray-900 text-white" 
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            History
+          </button>
         </div>
         
         {/* Stats summary */}
@@ -541,21 +621,41 @@ export default function UnifiedUpdates() {
                     </Cell>
                     <Cell>
                       {update.skuUpdates && update.skuUpdates.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {update.skuUpdates.map((sku, idx) => (
-                            <div key={idx} className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`inline-block ${badgeStyles.sku} px-2 py-0.5 rounded text-xs font-mono`}>
-                                {sku.skuCode}
-                              </span>
-                              <span className={`inline-block ${badgeStyles.field} px-2 py-0.5 rounded text-xs capitalize`}>
-                                {sku.field}
-                              </span>
-                              <span className="text-gray-400">→</span>
-                              <span className={`inline-block ${badgeStyles.value} px-2 py-0.5 rounded text-xs font-medium`}>
-                                {sku.newValue}
-                              </span>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex flex-col gap-1">
+                            {update.skuUpdates.map((sku, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`inline-block ${badgeStyles.sku} px-2 py-0.5 rounded text-xs font-mono`}>
+                                  {sku.skuCode}
+                                </span>
+                                <span className={`inline-block ${badgeStyles.field} px-2 py-0.5 rounded text-xs capitalize`}>
+                                  {sku.field}
+                                </span>
+                                <span className="text-gray-400">→</span>
+                                <span className={`inline-block ${badgeStyles.value} px-2 py-0.5 rounded text-xs font-medium`}>
+                                  {sku.newValue}
+                                </span>
+                                {sku.confidence && (
+                                  <span className="text-xs text-gray-500">
+                                    ({Math.round(sku.confidence * 100)}% conf)
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Show approval/rejection status only */}
+                          {update.skuUpdatesApproved ? (
+                            <div className="flex items-center gap-1 text-xs text-green-600">
+                              <CheckCircle className="h-3 w-3" />
+                              <span>Approved</span>
                             </div>
-                          ))}
+                          ) : update.skuUpdatesRejected ? (
+                            <div className="flex items-center gap-1 text-xs text-red-600">
+                              <XCircle className="h-3 w-3" />
+                              <span>Rejected</span>
+                            </div>
+                          ) : null}
                         </div>
                       ) : (
                         <span className="text-gray-400 text-sm">—</span>
@@ -563,6 +663,27 @@ export default function UnifiedUpdates() {
                     </Cell>
                     <Cell>
                       <div className="flex items-center gap-1">
+                        {/* Show approve/reject buttons for pending SKU updates */}
+                        {update.skuUpdates && update.skuUpdates.length > 0 && !update.processed && !update.skuUpdatesApproved && !update.skuUpdatesRejected && (
+                          <>
+                            <button
+                              onClick={() => handleApproveSKUUpdates(update._id)}
+                              disabled={processingUpdates.has(update._id)}
+                              className="p-1 hover:bg-green-100 rounded transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Approve SKU updates"
+                            >
+                              <CheckCircle className="h-4 w-4 text-green-600 group-hover:text-green-700" />
+                            </button>
+                            <button
+                              onClick={() => handleRejectSKUUpdates(update._id)}
+                              disabled={processingUpdates.has(update._id)}
+                              className="p-1 hover:bg-red-100 rounded transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Reject SKU updates"
+                            >
+                              <XCircle className="h-4 w-4 text-red-600 group-hover:text-red-700" />
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => handleDismissUpdate(update._id)}
                           className="p-1 hover:bg-gray-100 rounded transition-colors group"
@@ -587,6 +708,18 @@ export default function UnifiedUpdates() {
               })}
             </TableBody>
           </Table>
+        )}
+        
+        {/* Load More button */}
+        {status === "CanLoadMore" && (
+          <div className="p-4 border-t border-gray-200 text-center">
+            <button
+              onClick={() => loadMore(20)}
+              className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+            >
+              Load More
+            </button>
+          </div>
         )}
       </div>
     </div>

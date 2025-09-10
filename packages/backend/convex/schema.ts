@@ -111,10 +111,20 @@ export default defineSchema({
     processed: v.boolean(), // whether SKU updates were applied to tracking
     acknowledged: v.optional(v.boolean()), // whether user has dismissed this update
     acknowledgedAt: v.optional(v.number()), // when the update was acknowledged
+    archivedAt: v.optional(v.number()), // when item was archived (approved/rejected/dismissed)
+    
+    // SKU Update Approval fields
+    skuUpdatesApproved: v.optional(v.boolean()), // whether SKU updates were approved
+    skuUpdatesApprovedAt: v.optional(v.number()), // when approved
+    skuUpdatesApprovedBy: v.optional(v.string()), // user ID who approved
+    skuUpdatesRejected: v.optional(v.boolean()), // whether SKU updates were rejected
+    skuUpdatesRejectedAt: v.optional(v.number()), // when rejected
+    skuUpdatesRejectedBy: v.optional(v.string()), // user ID who rejected
   }).index("by_user", ["userId"])
     .index("by_source", ["source"])
     .index("by_created", ["createdAt"])
-    .index("by_user_created", ["userId", "createdAt"]),
+    .index("by_user_created", ["userId", "createdAt"])
+    .index("by_user_archived", ["userId", "archivedAt"]),
   
   // Simplified SKU tracking table - single source of truth
   skuTracking: defineTable({

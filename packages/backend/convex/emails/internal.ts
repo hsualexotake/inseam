@@ -13,14 +13,19 @@ export const checkProcessedEmailsBatch = internalQuery({
     emailIds: v.array(v.string()),
   },
   handler: async (ctx, { userId, emailIds }) => {
-    // Get all processed emails for this user in one query
+    // For efficiency, we only check against recent emails (last 90 days)
+    // Older emails are unlikely to be reprocessed
+    const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
+    
+    // Use take() with a reasonable limit to prevent memory issues
+    // Most users won't have more than 10000 processed emails in 90 days
     const processed = await ctx.db
       .query("processedEmailIds")
       .withIndex("by_user_email", (q) => q.eq("userId", userId))
-      .collect();
+      .filter((q) => q.gte(q.field("createdAt"), ninetyDaysAgo))
+      .take(10000);
     
     // Create a Set for O(1) lookup performance
-    // No time filtering - emails are processed exactly once
     const processedSet = new Set(processed.map(p => p.emailId));
     
     // Return array of booleans matching the order of input emailIds

@@ -69,12 +69,16 @@ export const NYLAS_CONFIG = {
 // Error messages
 export const ERROR_MESSAGES = {
   UNAUTHENTICATED: "Unauthenticated call to protected function",
+  UNAUTHORIZED: "Unauthorized",
   NOT_FOUND: "Resource not found",
   RATE_LIMITED: "Rate limit exceeded. Please try again later.",
   INVALID_INPUT: "Invalid input provided",
   SKU_NOT_FOUND: "SKU not found",
   UPDATE_NOT_FOUND: "Update not found",
   ALREADY_PROCESSED: "Already processed",
+  ALREADY_APPROVED: "SKU updates already approved",
+  ALREADY_REJECTED: "SKU updates already rejected",
+  NO_SKU_UPDATES: "No SKU updates to process",
 } as const;
 
 // Time windows

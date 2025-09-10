@@ -1,39 +1,55 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { api } from "./_generated/api";
 import { optionalAuth, requireAuth } from "./helpers/auth";
-import { QUERY_LIMITS } from "./constants";
+import { ERROR_MESSAGES } from "./constants";
 
 /**
  * Unified Updates System
  * Central hub for all update sources (email, wechat, whatsapp, etc)
  */
 
-// Get recent updates for the current user with validation
-export const getRecentUpdates = query({
-  args: v.object({
-    source: v.optional(v.string()), // filter by source
-    limit: v.optional(v.number()),
-  }),
-  handler: async (ctx, { source, limit = QUERY_LIMITS.DEFAULT }) => {
+// Get paginated updates with view mode (active or archived)
+export const getUpdates = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    viewMode: v.union(v.literal("active"), v.literal("archived")),
+    source: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const userId = await optionalAuth(ctx);
-    if (!userId) return [];
-    
-    // Validate and cap limit
-    const validatedLimit = Math.min(Math.max(1, limit), QUERY_LIMITS.MAX);
+    if (!userId) {
+      return {
+        page: [],
+        isDone: true,
+        continueCursor: "",
+      };
+    }
     
     let query = ctx.db
       .query("updates")
-      .withIndex("by_user_created", (q) => q.eq("userId", userId))
-      .filter((q) => q.neq(q.field("acknowledged"), true)); // Filter out acknowledged updates
+      .withIndex("by_user_created", (q) => q.eq("userId", userId));
     
-    if (source && source !== "all") {
-      query = query.filter((q) => q.eq(q.field("source"), source));
+    // Filter by view mode
+    if (args.viewMode === "active") {
+      // Show items that haven't been archived yet
+      query = query.filter((q) => 
+        q.eq(q.field("archivedAt"), undefined)
+      );
+    } else {
+      // Show archived items
+      query = query.filter((q) => 
+        q.neq(q.field("archivedAt"), undefined)
+      );
     }
     
-    return await query
-      .order("desc")
-      .take(validatedLimit);
+    // Filter by source if provided
+    if (args.source && args.source !== "all") {
+      query = query.filter((q) => q.eq(q.field("source"), args.source));
+    }
+    
+    return await query.order("desc").paginate(args.paginationOpts);
   },
 });
 
@@ -153,32 +169,14 @@ export const processEmailSummary = mutation({
         }
       }
       
-      // Process SKU updates through tracking system
-      if (summaryData.skuChanges && Array.isArray(summaryData.skuChanges)) {
-        await ctx.runMutation(api.tracking.processSKUUpdatesFromEmail, {
-          emailId: emailIds[0],
-          skuUpdates: summaryData.skuChanges.map((change: {
-            skuCode: string;
-            productName?: string;
-            field: string;
-            newValue: string;
-            sourceQuote: string;
-            confidence?: number;
-          }) => ({
-            skuCode: change.skuCode,
-            productName: change.productName,
-            field: change.field,
-            newValue: change.newValue,
-            sourceQuote: change.sourceQuote,
-            confidence: typeof change.confidence === 'number' ? change.confidence : 0.8,
-          })),
-        });
-        
-        // Mark updates as processed
-        for (const id of createdUpdates) {
-          await ctx.db.patch(id, { processed: true });
-        }
-      }
+      // NOTE: SKU updates are now stored but NOT auto-processed
+      // They require manual approval via approveSKUUpdates mutation
+      // This ensures users can review changes before they're applied
+      
+      // Don't mark as processed - they're pending approval
+      // for (const id of createdUpdates) {
+      //   await ctx.db.patch(id, { processed: false });
+      // }
       
       // Report results including partial failures
       if (failedUpdates.length > 0) {
@@ -243,12 +241,103 @@ export const acknowledgeUpdate = mutation({
     }
     
     // Mark as acknowledged
+    const now = Date.now();
     await ctx.db.patch(updateId, { 
       acknowledged: true,
-      acknowledgedAt: Date.now()
+      acknowledgedAt: now,
+      archivedAt: now, // Archive when dismissed
     });
     
     return { success: true };
+  },
+});
+
+// Approve SKU updates and apply them to tracking
+export const approveSKUUpdates = mutation({
+  args: v.object({
+    updateId: v.id("updates"),
+  }),
+  handler: async (ctx, { updateId }) => {
+    const userId = await requireAuth(ctx);
+    
+    // Fetch and validate in single step for atomicity
+    const update = await ctx.db.get(updateId);
+    if (!update) throw new Error(ERROR_MESSAGES.UPDATE_NOT_FOUND);
+    if (update.userId !== userId) throw new Error(ERROR_MESSAGES.UNAUTHORIZED);
+    
+    // Check current state atomically
+    if (update.processed || update.skuUpdatesApproved) {
+      throw new Error(ERROR_MESSAGES.ALREADY_APPROVED);
+    }
+    
+    if (update.skuUpdatesRejected) {
+      throw new Error(ERROR_MESSAGES.ALREADY_REJECTED);
+    }
+    
+    // Apply the SKU changes if they exist
+    if (update.skuUpdates && update.skuUpdates.length > 0) {
+      // Mark as processing first to prevent double-processing
+      const now = Date.now();
+      await ctx.db.patch(updateId, {
+        processed: true,
+        skuUpdatesApproved: true,
+        skuUpdatesApprovedAt: now,
+        skuUpdatesApprovedBy: userId,
+        archivedAt: now, // Archive when approved
+      });
+      
+      // Then apply the changes
+      await ctx.runMutation(api.tracking.processSKUUpdatesFromEmail, {
+        emailId: update.sourceId || "",
+        skuUpdates: update.skuUpdates.map(sku => ({
+          skuCode: sku.skuCode,
+          productName: undefined, // Not stored in the updates table
+          field: sku.field,
+          newValue: sku.newValue,
+          sourceQuote: update.sourceQuote || "",
+          confidence: sku.confidence,
+        })),
+      });
+      
+      return { success: true, message: "SKU updates approved and applied" };
+    }
+    
+    return { success: false, message: ERROR_MESSAGES.NO_SKU_UPDATES };
+  },
+});
+
+// Reject SKU updates without applying them
+export const rejectSKUUpdates = mutation({
+  args: v.object({
+    updateId: v.id("updates"),
+  }),
+  handler: async (ctx, { updateId }) => {
+    const userId = await requireAuth(ctx);
+    
+    // Fetch and validate in single step for atomicity
+    const update = await ctx.db.get(updateId);
+    if (!update) throw new Error(ERROR_MESSAGES.UPDATE_NOT_FOUND);
+    if (update.userId !== userId) throw new Error(ERROR_MESSAGES.UNAUTHORIZED);
+    
+    // Check current state atomically
+    if (update.processed || update.skuUpdatesApproved) {
+      throw new Error(ERROR_MESSAGES.ALREADY_APPROVED);
+    }
+    
+    if (update.skuUpdatesRejected) {
+      throw new Error(ERROR_MESSAGES.ALREADY_REJECTED);
+    }
+    
+    // Mark as rejected without processing
+    const now = Date.now();
+    await ctx.db.patch(updateId, {
+      skuUpdatesRejected: true,
+      skuUpdatesRejectedAt: now,
+      skuUpdatesRejectedBy: userId,
+      archivedAt: now, // Archive when rejected
+    });
+    
+    return { success: true, message: "SKU updates rejected" };
   },
 });
 

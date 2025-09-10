@@ -38,7 +38,7 @@ const DropdownMenu = ({ options, children, activeFiltersCount }: DropdownMenuPro
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={toggleDropdown}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-lg backdrop-blur-sm transition-colors"
+        className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#11111198] hover:bg-[#111111d1] text-white shadow-[0_0_20px_rgba(0,0,0,0.2)] border-none rounded-md backdrop-blur-sm transition-colors"
       >
         {children ?? "Menu"}
         {activeFiltersCount !== undefined && activeFiltersCount > 0 && (
@@ -50,7 +50,7 @@ const DropdownMenu = ({ options, children, activeFiltersCount }: DropdownMenuPro
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.4, ease: "easeInOut", type: "spring" }}
         >
-          <ChevronDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-3 w-3" />
         </motion.span>
       </button>
 

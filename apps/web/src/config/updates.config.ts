@@ -36,7 +36,7 @@ export const getTypeConfig = (type: string) => {
 
 // Badge styles for SKU updates
 export const badgeStyles = {
-  sku: "bg-blue-50 text-blue-700",
-  field: "bg-purple-50 text-purple-700",
-  value: "bg-green-50 text-green-700",
+  sku: "bg-indigo-50 text-indigo-700",
+  field: "bg-stone-50 text-stone-700",
+  value: "bg-yellow-50 text-yellow-700",
 } as const;
