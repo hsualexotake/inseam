@@ -126,6 +126,70 @@ export default defineSchema({
     .index("by_user_created", ["userId", "createdAt"])
     .index("by_user_archived", ["userId", "archivedAt"]),
   
+  // Dynamic tracker system - create custom spreadsheets without code
+  trackers: defineTable({
+    // Core fields
+    name: v.string(),                    // Display name
+    slug: v.string(),                    // Unique identifier (URL-safe)
+    description: v.optional(v.string()),
+    
+    // Column definitions stored as JSON
+    columns: v.array(v.object({
+      id: v.string(),                    // Unique column identifier
+      name: v.string(),                  // Display name
+      key: v.string(),                   // Data field key
+      type: v.union(                     // Column data type
+        v.literal("text"),
+        v.literal("number"),
+        v.literal("date"),
+        v.literal("select"),
+        v.literal("boolean")
+      ),
+      required: v.boolean(),
+      options: v.optional(v.array(v.string())), // For select type
+      order: v.number(),                 // Display order
+      width: v.optional(v.number()),    // Column width in pixels
+      
+      // AI configuration (for future use)
+      aiEnabled: v.optional(v.boolean()),
+      aiAliases: v.optional(v.array(v.string())),
+    })),
+    
+    // Settings
+    primaryKeyColumn: v.string(),       // Which column is unique identifier
+    
+    // Metadata
+    userId: v.string(),                 // Owner
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    isActive: v.boolean(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_user", ["userId"])
+    .index("by_user_active", ["userId", "isActive"]),
+
+  // Tracker data table - stores all data for all trackers
+  trackerData: defineTable({
+    trackerId: v.id("trackers"),
+    rowId: v.string(),                  // Unique row identifier
+    
+    // Flexible JSON storage for row data
+    data: v.record(v.string(), v.union(
+      v.string(),
+      v.number(),
+      v.boolean(),
+      v.null()
+    )),                                 // JSON object with column values
+    
+    // Metadata
+    createdAt: v.number(),
+    createdBy: v.string(),              // User ID who created
+    updatedAt: v.number(),
+    updatedBy: v.string(),              // User ID who last updated
+  })
+    .index("by_tracker", ["trackerId"])
+    .index("by_tracker_row", ["trackerId", "rowId"]),
+  
   // Simplified SKU tracking table - single source of truth
   skuTracking: defineTable({
     userId: v.string(),

@@ -29,6 +29,21 @@ export interface Usage {
   requestCount: number;
 }
 
+// Re-export tracker types from dedicated file
+export type {
+  ColumnDefinition,
+  ColumnType,
+  TrackerDataValue,
+  Tracker,
+  TrackerDataRow,
+  ValidationError,
+  ValidationResult,
+  BulkImportResult
+} from "./types/tracker";
+
+// Legacy alias for backward compatibility
+export type TrackerData = import("./types/tracker").TrackerDataRow;
+
 // Cost configuration
 export const COST_PER_1K_TOKENS = {
   'gpt-4o-mini': {

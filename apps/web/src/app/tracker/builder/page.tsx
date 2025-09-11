@@ -10,17 +10,17 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  Package
+  Package,
+  ArrowLeft
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Logo, LogoIcon } from "@/components/dashboard/LogoComponents";
 import { useClerk } from "@clerk/nextjs";
-import ModernHeader from "@/components/dashboard/ModernHeader";
-import UnifiedUpdates from "@/components/dashboard/UnifiedUpdates";
-import SimpleSKUTracking from "@/components/dashboard/SimpleSKUTracking";
+import TrackerBuilder from "@/components/tracker/TrackerBuilder";
+import Link from "next/link";
 
-export default function DashboardPage() {
+export default function TrackerBuilderPage() {
   const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
 
@@ -121,17 +121,21 @@ export default function DashboardPage() {
       <main className="flex-1 flex flex-col bg-white rounded-tl-2xl border border-gray-200">
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 pt-8">
-            <ModernHeader />
-            
-            <div className="mb-8 mx-auto" style={{ maxWidth: '84rem' }}>
-              <UnifiedUpdates />
+            {/* Breadcrumb */}
+            <div className="mb-6">
+              <Link 
+                href="/tracker" 
+                className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Trackers
+              </Link>
             </div>
             
-            <SimpleSKUTracking />
+            <TrackerBuilder />
           </div>
         </div>
       </main>
     </div>
   );
 }
-
