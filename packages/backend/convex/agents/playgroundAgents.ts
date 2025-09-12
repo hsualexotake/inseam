@@ -14,6 +14,7 @@ import notesAgentModule from "./notesAgent";
 import researchAgentModule from "./researchAgent";
 import analysisAgentModule from "./analysisAgent";
 import creativeAgentModule from "./creativeAgent";
+import demoMathAgentModule from "./demoMathAgent";
 
 // Get the language model
 const languageModel = getChatModel();
@@ -69,4 +70,13 @@ export const creativeAgent = new Agent(components.agent, {
   instructions: creativeAgentModule.config.instructions,
   tools: creativeAgentModule.tools || {},
   ...(creativeAgentModule.config.config || {}),
+});
+
+// Demo Math Agent - Mathematical operations demonstration
+export const demoMathAgent = new Agent(components.agent, {
+  name: demoMathAgentModule.config.name,
+  languageModel,
+  instructions: demoMathAgentModule.config.instructions,
+  tools: demoMathAgentModule.tools || {},
+  ...(demoMathAgentModule.config.config || {}),
 });

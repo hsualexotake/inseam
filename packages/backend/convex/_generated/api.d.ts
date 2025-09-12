@@ -16,6 +16,9 @@ import type * as agents_core_registry from "../agents/core/registry.js";
 import type * as agents_core_types from "../agents/core/types.js";
 import type * as agents_creativeAgent_config from "../agents/creativeAgent/config.js";
 import type * as agents_creativeAgent_index from "../agents/creativeAgent/index.js";
+import type * as agents_demoMathAgent_config from "../agents/demoMathAgent/config.js";
+import type * as agents_demoMathAgent_index from "../agents/demoMathAgent/index.js";
+import type * as agents_demoMathAgent_tools from "../agents/demoMathAgent/tools.js";
 import type * as agents_example from "../agents/example.js";
 import type * as agents_helpers_withAgentThread from "../agents/helpers/withAgentThread.js";
 import type * as agents_index from "../agents/index.js";
@@ -27,6 +30,12 @@ import type * as agents_researchAgent_config from "../agents/researchAgent/confi
 import type * as agents_researchAgent_index from "../agents/researchAgent/index.js";
 import type * as agents_summaryAgent_config from "../agents/summaryAgent/config.js";
 import type * as agents_summaryAgent_index from "../agents/summaryAgent/index.js";
+import type * as agents_tools_shared_index from "../agents/tools/shared/index.js";
+import type * as agents_tools_shared_math from "../agents/tools/shared/math.js";
+import type * as agents_workflows_actions_mathActions from "../agents/workflows/actions/mathActions.js";
+import type * as agents_workflows_definitions_mathWorkflow from "../agents/workflows/definitions/mathWorkflow.js";
+import type * as agents_workflows_manager from "../agents/workflows/manager.js";
+import type * as agents_workflows_test from "../agents/workflows/test.js";
 import type * as ai_models from "../ai/models.js";
 import type * as chat_basic from "../chat/basic.js";
 import type * as chat_streaming from "../chat/streaming.js";
@@ -86,6 +95,9 @@ declare const fullApi: ApiFromModules<{
   "agents/core/types": typeof agents_core_types;
   "agents/creativeAgent/config": typeof agents_creativeAgent_config;
   "agents/creativeAgent/index": typeof agents_creativeAgent_index;
+  "agents/demoMathAgent/config": typeof agents_demoMathAgent_config;
+  "agents/demoMathAgent/index": typeof agents_demoMathAgent_index;
+  "agents/demoMathAgent/tools": typeof agents_demoMathAgent_tools;
   "agents/example": typeof agents_example;
   "agents/helpers/withAgentThread": typeof agents_helpers_withAgentThread;
   "agents/index": typeof agents_index;
@@ -97,6 +109,12 @@ declare const fullApi: ApiFromModules<{
   "agents/researchAgent/index": typeof agents_researchAgent_index;
   "agents/summaryAgent/config": typeof agents_summaryAgent_config;
   "agents/summaryAgent/index": typeof agents_summaryAgent_index;
+  "agents/tools/shared/index": typeof agents_tools_shared_index;
+  "agents/tools/shared/math": typeof agents_tools_shared_math;
+  "agents/workflows/actions/mathActions": typeof agents_workflows_actions_mathActions;
+  "agents/workflows/definitions/mathWorkflow": typeof agents_workflows_definitions_mathWorkflow;
+  "agents/workflows/manager": typeof agents_workflows_manager;
+  "agents/workflows/test": typeof agents_workflows_test;
   "ai/models": typeof ai_models;
   "chat/basic": typeof chat_basic;
   "chat/streaming": typeof chat_streaming;
@@ -2743,6 +2761,200 @@ export declare const components: {
           null
         >;
       };
+    };
+  };
+  workflow: {
+    journal: {
+      load: FunctionReference<
+        "query",
+        "internal",
+        { workflowId: string },
+        {
+          journalEntries: Array<{
+            _creationTime: number;
+            _id: string;
+            step: {
+              args: any;
+              argsSize: number;
+              completedAt?: number;
+              functionType: "query" | "mutation" | "action";
+              handle: string;
+              inProgress: boolean;
+              name: string;
+              runResult?:
+                | { kind: "success"; returnValue: any }
+                | { error: string; kind: "failed" }
+                | { kind: "canceled" };
+              startedAt: number;
+              workId?: string;
+            };
+            stepNumber: number;
+            workflowId: string;
+          }>;
+          logLevel: "DEBUG" | "TRACE" | "INFO" | "REPORT" | "WARN" | "ERROR";
+          ok: boolean;
+          workflow: {
+            _creationTime: number;
+            _id: string;
+            args: any;
+            generationNumber: number;
+            logLevel?: any;
+            name?: string;
+            onComplete?: { context?: any; fnHandle: string };
+            runResult?:
+              | { kind: "success"; returnValue: any }
+              | { error: string; kind: "failed" }
+              | { kind: "canceled" };
+            startedAt?: any;
+            state?: any;
+            workflowHandle: string;
+          };
+        }
+      >;
+      startStep: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          generationNumber: number;
+          name: string;
+          retry?:
+            | boolean
+            | { base: number; initialBackoffMs: number; maxAttempts: number };
+          schedulerOptions?: { runAt?: number } | { runAfter?: number };
+          step: {
+            args: any;
+            argsSize: number;
+            completedAt?: number;
+            functionType: "query" | "mutation" | "action";
+            handle: string;
+            inProgress: boolean;
+            name: string;
+            runResult?:
+              | { kind: "success"; returnValue: any }
+              | { error: string; kind: "failed" }
+              | { kind: "canceled" };
+            startedAt: number;
+            workId?: string;
+          };
+          workflowId: string;
+          workpoolOptions?: {
+            defaultRetryBehavior?: {
+              base: number;
+              initialBackoffMs: number;
+              maxAttempts: number;
+            };
+            logLevel?: "DEBUG" | "TRACE" | "INFO" | "REPORT" | "WARN" | "ERROR";
+            maxParallelism?: number;
+            retryActionsByDefault?: boolean;
+          };
+        },
+        {
+          _creationTime: number;
+          _id: string;
+          step: {
+            args: any;
+            argsSize: number;
+            completedAt?: number;
+            functionType: "query" | "mutation" | "action";
+            handle: string;
+            inProgress: boolean;
+            name: string;
+            runResult?:
+              | { kind: "success"; returnValue: any }
+              | { error: string; kind: "failed" }
+              | { kind: "canceled" };
+            startedAt: number;
+            workId?: string;
+          };
+          stepNumber: number;
+          workflowId: string;
+        }
+      >;
+    };
+    workflow: {
+      cancel: FunctionReference<
+        "mutation",
+        "internal",
+        { workflowId: string },
+        null
+      >;
+      cleanup: FunctionReference<
+        "mutation",
+        "internal",
+        { workflowId: string },
+        boolean
+      >;
+      complete: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          generationNumber: number;
+          runResult:
+            | { kind: "success"; returnValue: any }
+            | { error: string; kind: "failed" }
+            | { kind: "canceled" };
+          workflowId: string;
+        },
+        null
+      >;
+      create: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          maxParallelism?: number;
+          onComplete?: { context?: any; fnHandle: string };
+          startAsync?: boolean;
+          workflowArgs: any;
+          workflowHandle: string;
+          workflowName: string;
+        },
+        string
+      >;
+      getStatus: FunctionReference<
+        "query",
+        "internal",
+        { workflowId: string },
+        {
+          inProgress: Array<{
+            _creationTime: number;
+            _id: string;
+            step: {
+              args: any;
+              argsSize: number;
+              completedAt?: number;
+              functionType: "query" | "mutation" | "action";
+              handle: string;
+              inProgress: boolean;
+              name: string;
+              runResult?:
+                | { kind: "success"; returnValue: any }
+                | { error: string; kind: "failed" }
+                | { kind: "canceled" };
+              startedAt: number;
+              workId?: string;
+            };
+            stepNumber: number;
+            workflowId: string;
+          }>;
+          logLevel: "DEBUG" | "TRACE" | "INFO" | "REPORT" | "WARN" | "ERROR";
+          workflow: {
+            _creationTime: number;
+            _id: string;
+            args: any;
+            generationNumber: number;
+            logLevel?: any;
+            name?: string;
+            onComplete?: { context?: any; fnHandle: string };
+            runResult?:
+              | { kind: "success"; returnValue: any }
+              | { error: string; kind: "failed" }
+              | { kind: "canceled" };
+            startedAt?: any;
+            state?: any;
+            workflowHandle: string;
+          };
+        }
+      >;
     };
   };
 };
