@@ -1,7 +1,7 @@
 import type { Config } from "@convex-dev/agent";
 
 // Agent type definitions
-export type AgentType = 'summary' | 'notes' | 'research' | 'analysis' | 'creative';
+export type AgentType = 'summary' | 'notes' | 'research' | 'analysis' | 'creative' | 'demoMath';
 
 // Agent configuration interface
 export interface AgentConfig {

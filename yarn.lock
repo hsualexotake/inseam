@@ -955,6 +955,18 @@
   resolved "https://registry.npmjs.org/@convex-dev/agent/-/agent-0.2.5.tgz"
   integrity sha512-EA3coSugMYYHU1NHv+PEdXMg6xEF/9SPw7QAtCB0PitgAjzp2y+rt4hm8J/NNCRnzvyxzB7/SWbuJUS9X9wuMQ==
 
+"@convex-dev/workflow@^0.2.6":
+  version "0.2.6"
+  resolved "https://registry.yarnpkg.com/@convex-dev/workflow/-/workflow-0.2.6.tgz#b787dff9f8e18d9bcefd4b290c1869f89b0896b0"
+  integrity sha512-jXaRqBHiRKHCbm8kll0+PxlRtHFkmXCVVbKBhuVYLP4/O5Tlxb2teXDKx+pv3hsmcps0uySm5QKSmsp51N1hTw==
+  dependencies:
+    async-channel "^0.2.0"
+
+"@convex-dev/workpool@^0.2.18":
+  version "0.2.18"
+  resolved "https://registry.yarnpkg.com/@convex-dev/workpool/-/workpool-0.2.18.tgz#bebbb3b09d2bfc1f2edcddce1032edd427bc8d3b"
+  integrity sha512-tfRfBCukaRiybxwy4/W3rLWpIRhPivFH9tC5++d0XE1sV627vw2mAwOM9SnpY1k+BWVoNrHrHrxBheklSbuAag==
+
 "@edge-runtime/primitives@6.0.0":
   version "6.0.0"
   resolved "https://registry.yarnpkg.com/@edge-runtime/primitives/-/primitives-6.0.0.tgz#7ca59111605d72b6789b55e6d9c264afb656a5b1"
@@ -5405,6 +5417,11 @@ ast-types-flow@^0.0.8:
   version "0.0.8"
   resolved "https://registry.npmjs.org/ast-types-flow/-/ast-types-flow-0.0.8.tgz"
   integrity sha512-OH/2E5Fg20h2aPrbe+QL8JZQFko0YZaF+j4mnQ7BGhfavO7OpSLa8a0y9sBwomHdSbkhTS8TQNayBfnW5DwbvQ==
+
+async-channel@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/async-channel/-/async-channel-0.2.0.tgz#4260a462e2fe3096f6cf59b5fb9b2e11a11b77bc"
+  integrity sha512-BJyjI/sfKlyijaBt2hbOSxT28xGNtLR0QLzAKO1Hlnv5BULY7sAoYoTPW3lfr1ZIC7y+FxabxO9T8GXpyoofGg==
 
 async-function@^1.0.0:
   version "1.0.0"

@@ -15,7 +15,8 @@ import {
   notesAgent, 
   researchAgent, 
   analysisAgent, 
-  creativeAgent 
+  creativeAgent,
+  demoMathAgent 
 } from "./agents/playgroundAgents";
 
 /**
@@ -23,12 +24,13 @@ import {
  * This exposes the necessary functions for the playground UI to interact with our agents
  * Authorization is handled by API keys generated via CLI
  * 
- * All 5 defined agents are available in the playground:
+ * All 6 defined agents are available in the playground:
  * - Summary Agent: Creates concise summaries
  * - Notes Agent: Manages notes with CRUD operations
  * - Research Agent: Explores and researches topics
  * - Analysis Agent: Analyzes data and patterns
  * - Creative Agent: Creative writing and ideation
+ * - Demo Math Agent: Mathematical operations demonstration
  */
 export const {
   isApiKeyValid,
@@ -47,5 +49,6 @@ export const {
     researchAgent,
     analysisAgent,
     creativeAgent,
+    demoMathAgent,
   ],
 });

@@ -8,6 +8,7 @@ export const agentRegistry: AgentRegistry = {
   research: () => import('../researchAgent'),
   analysis: () => import('../analysisAgent'),
   creative: () => import('../creativeAgent'),
+  demoMath: () => import('../demoMathAgent'),
 };
 
 // Helper to get available agent types
