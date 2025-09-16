@@ -230,4 +230,74 @@ export default defineSchema({
     .index("by_sku_code", ["skuCode"])
     .index("by_user_sku", ["userId", "skuCode"])
     .index("by_user_status", ["userId", "status"]),
+  
+  // New centralized updates table for tracker integration
+  centralizedUpdates: defineTable({
+    userId: v.string(),
+    source: v.string(), // "email", "manual", etc.
+    sourceId: v.optional(v.string()), // email ID, message ID, etc.
+    
+    // Tracker integration
+    trackerMatches: v.array(v.object({
+      trackerId: v.id("trackers"),
+      trackerName: v.string(),
+      confidence: v.number(),
+    })),
+    
+    // Standard update fields
+    type: v.string(), // "shipment", "delivery", "delay", "approval", "update", "general"
+    category: v.string(), // "fashion_ops", "logistics", "general"
+    title: v.string(),
+    summary: v.string(),
+    urgency: v.optional(v.string()), // "high", "medium", "low"
+    
+    // Source metadata
+    fromName: v.optional(v.string()), // sender name
+    fromId: v.optional(v.string()), // email address, phone number, etc.
+    sourceSubject: v.optional(v.string()), // email subject or message preview
+    sourceQuote: v.optional(v.string()), // exact text that generated this update
+    sourceDate: v.optional(v.number()), // original message timestamp
+    
+    // Tracker proposals embedded
+    trackerProposals: v.optional(v.array(v.object({
+      trackerId: v.id("trackers"),
+      trackerName: v.string(),
+      rowId: v.string(), // Primary key value for the row
+      isNewRow: v.boolean(), // Whether this is a new row or update
+      columnUpdates: v.array(v.object({
+        columnKey: v.string(),
+        columnName: v.string(),
+        columnType: v.string(),
+        currentValue: v.optional(v.union(v.string(), v.number(), v.boolean(), v.null())),
+        proposedValue: v.union(v.string(), v.number(), v.boolean(), v.null()),
+        confidence: v.number(),
+      })),
+    }))),
+    
+    // Processing status
+    processed: v.boolean(), // Whether proposals have been applied
+    processedAt: v.optional(v.number()),
+    approved: v.optional(v.boolean()),
+    approvedAt: v.optional(v.number()),
+    approvedBy: v.optional(v.string()),
+    rejected: v.optional(v.boolean()),
+    rejectedAt: v.optional(v.number()),
+    
+    createdAt: v.number(),
+    archivedAt: v.optional(v.number()),
+  }).index("by_user", ["userId"])
+    .index("by_user_created", ["userId", "createdAt"])
+    .index("by_processed", ["processed"])
+    .index("by_user_archived", ["userId", "archivedAt"]),
+
+  // Tracker row aliases for identifying rows by alternative names
+  trackerRowAliases: defineTable({
+    trackerId: v.id("trackers"),
+    rowId: v.string(),        // The actual PK value (e.g., "12")
+    alias: v.string(),        // The alias (e.g., "green dress")
+    userId: v.string(),       // Who created it
+    createdAt: v.number(),
+  })
+    .index("by_tracker_alias", ["trackerId", "alias"])  // Primary lookup
+    .index("by_tracker_row", ["trackerId", "rowId"]),   // Get aliases for a row
 });
