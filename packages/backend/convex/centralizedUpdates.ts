@@ -200,6 +200,8 @@ export const getCentralizedStats = query({
     if (!userId) {
       return {
         total: 0,
+        active: 0,
+        archived: 0,
         pending: 0,
         approved: 0,
         rejected: 0,
@@ -217,15 +219,19 @@ export const getCentralizedStats = query({
 
     // Calculate statistics from the loaded documents
     const total = allUpdates.length;
+    const active = allUpdates.filter(u => !u.processed && !u.archivedAt).length;
+    const archived = allUpdates.filter(u => u.archivedAt !== undefined).length;
     const pending = allUpdates.filter(u => !u.processed).length;
     const approved = allUpdates.filter(u => u.approved === true).length;
     const rejected = allUpdates.filter(u => u.rejected === true).length;
     const withProposals = allUpdates.filter(u =>
-      u.trackerProposals && u.trackerProposals.length > 0
+      !u.archivedAt && u.trackerProposals && u.trackerProposals.length > 0
     ).length;
 
     return {
       total,
+      active,
+      archived,
       pending,
       approved,
       rejected,

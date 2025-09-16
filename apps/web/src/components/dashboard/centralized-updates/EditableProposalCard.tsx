@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, X, ChevronDown, ChevronUp, Key, AlertCircle } from "lucide-react";
+import { CheckCircle, Key, AlertCircle } from "lucide-react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import TrackerSelector from "./TrackerSelector";
 import ColumnMappingDropdown from "./ColumnMappingDropdown";
@@ -60,7 +60,6 @@ export default function EditableProposalCard({
   const [selectedTrackerId, setSelectedTrackerId] = useState(proposal.trackerId);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({});
-  const [isExpanded, setIsExpanded] = useState(true);
   const [isApproved, setIsApproved] = useState(false);
 
   const selectedTracker = availableTrackers.find(t => t._id === selectedTrackerId);
@@ -114,55 +113,16 @@ export default function EditableProposalCard({
   return (
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${isProcessing ? "opacity-50" : ""}`}>
       <div className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="font-mono text-lg font-medium text-gray-900">
-                {proposal.rowId}
-              </span>
-              {proposal.isNewRow && (
-                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">
-                  New Row
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <TrackerSelector
-                trackers={availableTrackers}
-                selectedTrackerId={selectedTrackerId}
-                onTrackerChange={setSelectedTrackerId}
-                disabled={isProcessing}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
-              disabled={isProcessing}
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-4 w-4 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              )}
-            </button>
-            <button
-              onClick={onDiscard}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
-              title="Discard proposal"
-              disabled={isProcessing}
-            >
-              <X className="h-4 w-4 text-gray-400" />
-            </button>
-          </div>
+        <div className="mb-3">
+          <TrackerSelector
+            trackers={availableTrackers}
+            selectedTrackerId={selectedTrackerId}
+            onTrackerChange={setSelectedTrackerId}
+            disabled={isProcessing}
+          />
         </div>
 
-        {isExpanded && (
-          <>
-            <div className="space-y-3 mt-4">
+        <div className="space-y-3 mt-4">
               {proposal.columnUpdates.map((update) => {
                 const targetColumnKey = columnMappings[update.columnKey] || update.columnKey;
                 const currentValue = editedValues[update.columnKey] ?? update.proposedValue;
@@ -218,7 +178,7 @@ export default function EditableProposalCard({
               <button
                 onClick={handleApply}
                 disabled={isProcessing}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 transition-colors"
               >
                 Apply Changes
               </button>
@@ -230,8 +190,6 @@ export default function EditableProposalCard({
                 Discard
               </button>
             </div>
-          </>
-        )}
       </div>
     </div>
   );

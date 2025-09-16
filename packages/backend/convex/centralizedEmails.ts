@@ -1,4 +1,4 @@
-import { action } from "./_generated/server";
+import { action, query } from "./_generated/server";
 import { v } from "convex/values";
 import { workflow } from "./agents/workflows/manager";
 import { api } from "./_generated/api";
@@ -139,5 +139,70 @@ export const summarizeCentralizedInbox = action({
         workflowStatus: status.type,
       },
     };
+  },
+});
+
+/**
+ * Get the status of a running workflow
+ * Returns the current status and any available results
+ */
+export const getWorkflowStatus = query({
+  args: v.object({
+    workflowId: v.string(),
+  }),
+  handler: async (ctx, { workflowId }) => {
+    await requireAuth(ctx);
+
+    try {
+      // Get the workflow status
+      const status = await workflow.status(ctx, workflowId as WorkflowId);
+
+      // Parse the status to determine progress
+      let currentStep = "fetching";
+      let stepsCompleted = 0;
+
+      if (status.type === "inProgress") {
+        // Estimate progress based on running steps
+        const runningCount = status.running?.length || 0;
+
+        // Basic heuristic: estimate progress based on number of running/completed steps
+        if (runningCount > 0) {
+          // Assume we're past fetching if workflow is running
+          currentStep = "analyzing";
+          stepsCompleted = 1;
+        }
+
+        // If multiple steps are running or have run, we're further along
+        if (runningCount > 2) {
+          currentStep = "matching";
+          stepsCompleted = 2;
+        }
+
+        if (runningCount > 4) {
+          currentStep = "creating";
+          stepsCompleted = 3;
+        }
+      } else if (status.type === "completed") {
+        currentStep = "completed";
+        stepsCompleted = 4;
+      } else if (status.type === "failed" || status.type === "canceled") {
+        currentStep = "failed";
+      }
+
+      return {
+        status: status.type,
+        currentStep,
+        stepsCompleted,
+        runningSteps: status.type === "inProgress" ? status.running?.length : 0,
+      };
+    } catch (error) {
+      console.error("Failed to get workflow status:", error);
+      return {
+        status: "unknown",
+        currentStep: "unknown",
+        stepsCompleted: 0,
+        runningSteps: 0,
+      };
+    }
   },
 });
