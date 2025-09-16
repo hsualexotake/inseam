@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useAction, usePaginatedQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import EditableProposalCard from "./centralized-updates/EditableProposalCard";
+import ProcessingSteps, { type ProcessingStep } from "./ProcessingSteps";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface TrackerMatch {
   trackerId: Id<"trackers">;
@@ -63,6 +65,9 @@ export default function CentralizedUpdates() {
   const [processingUpdates, setProcessingUpdates] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
   const [dismissedProposals, setDismissedProposals] = useState<Set<string>>(new Set());
+  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
+  const [showProcessingSteps, setShowProcessingSteps] = useState(false);
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   
   // Fetch paginated centralized updates
   const {
@@ -86,6 +91,12 @@ export default function CentralizedUpdates() {
   const summarizeEmails = useAction(api.centralizedEmails.summarizeCentralizedInbox);
   const emailConnection = useQuery(api.emails.getEmailConnection);
   const initiateEmailAuth = useAction(api.nylas.actions.initiateNylasAuth);
+
+  // Query workflow status when we have an active workflow
+  const workflowStatus = useQuery(
+    api.centralizedEmails.getWorkflowStatus,
+    activeWorkflowId ? { workflowId: activeWorkflowId } : "skip"
+  );
   
   // Toggle expanded state
   const toggleExpanded = (id: string) => {
@@ -97,18 +108,190 @@ export default function CentralizedUpdates() {
     }
     setExpandedUpdates(newExpanded);
   };
+
+  // Update processing steps based on workflow status
+  useEffect(() => {
+    if (!workflowStatus || !activeWorkflowId) return;
+
+    const steps = [...processingSteps];
+
+    // Update steps based on workflow progress
+    if (workflowStatus.status === "completed") {
+      // Mark all steps as completed
+      steps[0] = { ...steps[0], status: "completed", description: "Emails fetched" };
+      steps[1] = { ...steps[1], status: "completed", description: "Content analyzed" };
+      steps[2] = { ...steps[2], status: "completed", description: "Trackers matched" };
+      steps[3] = { ...steps[3], status: "completed", description: "Updates created successfully" };
+
+      setProcessingSteps(steps);
+
+      // Clear workflow and hide steps after a short delay
+      setTimeout(() => {
+        setActiveWorkflowId(null);
+        setShowProcessingSteps(false);
+        setProcessingSteps([]);
+      }, 2000);
+    } else if (workflowStatus.status === "failed") {
+      // Mark as failed
+      const failedStep = workflowStatus.stepsCompleted || 0;
+      for (let i = 0; i < failedStep; i++) {
+        steps[i] = { ...steps[i], status: "completed" };
+      }
+      if (failedStep < steps.length) {
+        steps[failedStep] = { ...steps[failedStep], status: "completed", description: "Failed" };
+      }
+
+      setProcessingSteps(steps);
+
+      setTimeout(() => {
+        setActiveWorkflowId(null);
+        setShowProcessingSteps(false);
+        setProcessingSteps([]);
+      }, 3000);
+    } else if (workflowStatus.status === "inProgress") {
+      // Update based on current step
+      const currentStepIndex = workflowStatus.stepsCompleted || 0;
+
+      // Mark completed steps
+      for (let i = 0; i < currentStepIndex; i++) {
+        steps[i] = { ...steps[i], status: "completed" };
+      }
+
+      // Update descriptions based on step
+      if (currentStepIndex === 0 && steps[0]) {
+        steps[0] = { ...steps[0], status: "active", description: "Fetching emails..." };
+      } else if (currentStepIndex === 1 && steps[1]) {
+        steps[0] = { ...steps[0], status: "completed", description: "Emails fetched" };
+        steps[1] = { ...steps[1], status: "active", description: "Extracting information" };
+      } else if (currentStepIndex === 2 && steps[2]) {
+        steps[0] = { ...steps[0], status: "completed", description: "Emails fetched" };
+        steps[1] = { ...steps[1], status: "completed", description: "Content analyzed" };
+        steps[2] = { ...steps[2], status: "active", description: "Matching to trackers..." };
+      } else if (currentStepIndex === 3 && steps[3]) {
+        steps[0] = { ...steps[0], status: "completed", description: "Emails fetched" };
+        steps[1] = { ...steps[1], status: "completed", description: "Content analyzed" };
+        steps[2] = { ...steps[2], status: "completed", description: "Trackers matched" };
+        steps[3] = { ...steps[3], status: "active", description: "Creating updates..." };
+      }
+
+      setProcessingSteps(steps);
+    }
+  }, [workflowStatus, activeWorkflowId]);
   
   
   // Handle refresh (fetch new emails)
   const handleRefresh = useCallback(async () => {
     setLoading(true);
+    setShowProcessingSteps(true);
+
+    // Initialize steps
+    const initialSteps: ProcessingStep[] = [
+      {
+        id: "fetch",
+        title: "Fetching emails",
+        description: "Checking inbox for new messages...",
+        status: "active"
+      },
+      {
+        id: "analyze",
+        title: "Analyzing content",
+        description: "Waiting to process",
+        status: "pending"
+      },
+      {
+        id: "trackers",
+        title: "Finding trackers",
+        description: "Waiting to match",
+        status: "pending"
+      },
+      {
+        id: "proposals",
+        title: "Creating proposals",
+        description: "Waiting to generate",
+        status: "pending"
+      }
+    ];
+
+    setProcessingSteps(initialSteps);
+
     try {
       const result = await summarizeEmails({ emailCount: 5 });
+
       if (result.success) {
-        console.log(`Created ${result.updatesCreated} updates from emails`);
+        const totalEmails = result.statistics?.totalEmails || 0;
+
+        if (totalEmails === 0) {
+          // No new emails to process
+          setProcessingSteps([
+            { ...initialSteps[0], status: "completed", description: "No new emails found" },
+            { ...initialSteps[1], status: "pending", description: "No emails to analyze" },
+            { ...initialSteps[2], status: "pending", description: "No matching needed" },
+            { ...initialSteps[3], status: "pending", description: "No updates created" }
+          ]);
+
+          setTimeout(() => {
+            setShowProcessingSteps(false);
+            setProcessingSteps([]);
+            setActiveWorkflowId(null);
+          }, 3000);
+        } else if (result.workflowId) {
+          // Store the workflow ID to track its progress
+          setActiveWorkflowId(result.workflowId);
+
+          // Update first step to show email count
+          const updatedSteps = [...initialSteps];
+          updatedSteps[0] = {
+            ...updatedSteps[0],
+            status: "completed",
+            description: `Found ${totalEmails} new email${totalEmails > 1 ? 's' : ''}`
+          };
+          updatedSteps[1] = { ...updatedSteps[1], status: "active", description: "Extracting information" };
+          setProcessingSteps(updatedSteps);
+
+          // The useEffect will handle updating steps based on workflow status
+        } else {
+          // Shouldn't happen, but handle it
+          setProcessingSteps([
+            { ...initialSteps[0], status: "completed", description: "Started processing" },
+            { ...initialSteps[1], status: "pending" },
+            { ...initialSteps[2], status: "pending" },
+            { ...initialSteps[3], status: "pending" }
+          ]);
+
+          setTimeout(() => {
+            setShowProcessingSteps(false);
+            setProcessingSteps([]);
+          }, 3000);
+        }
+
+        console.log(`Started workflow to process ${totalEmails} emails`);
+      } else {
+        // Show error in steps
+        setProcessingSteps([
+          { ...initialSteps[0], status: "completed", description: result.message || "No emails to process" },
+          { ...initialSteps[1], status: "pending", description: "Skipped" },
+          { ...initialSteps[2], status: "pending", description: "Skipped" },
+          { ...initialSteps[3], status: "pending", description: "Skipped" }
+        ]);
+
+        setTimeout(() => {
+          setShowProcessingSteps(false);
+          setProcessingSteps([]);
+        }, 3000);
       }
     } catch (error) {
       console.error("Failed to fetch updates:", error);
+      setProcessingSteps([
+        { id: "fetch", title: "Fetching emails", description: "Failed to connect", status: "completed" },
+        { id: "analyze", title: "Analyzing content", description: "Skipped", status: "pending" },
+        { id: "trackers", title: "Finding trackers", description: "Skipped", status: "pending" },
+        { id: "proposals", title: "Creating proposals", description: "Skipped", status: "pending" }
+      ]);
+
+      setTimeout(() => {
+        setShowProcessingSteps(false);
+        setProcessingSteps([]);
+      }, 3000);
     } finally {
       setLoading(false);
     }
@@ -214,23 +397,6 @@ export default function CentralizedUpdates() {
     return "just now";
   };
   
-  // Get confidence color
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.9) return "text-green-600";
-    if (confidence >= 0.7) return "text-yellow-600";
-    return "text-orange-600";
-  };
-  
-  // Get urgency badge color
-  const getUrgencyColor = (urgency?: string) => {
-    switch (urgency) {
-      case "high": return "bg-red-100 text-red-800";
-      case "medium": return "bg-yellow-100 text-yellow-800";
-      case "low": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
-  
   if (!updates) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
@@ -256,7 +422,7 @@ export default function CentralizedUpdates() {
               <button
                 onClick={handleRefresh}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-900 hover:bg-gray-800 text-white rounded-md disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-500 hover:bg-indigo-600 text-white rounded-md disabled:opacity-50 transition-colors"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? "Processing..." : "Process Emails"}
@@ -265,7 +431,7 @@ export default function CentralizedUpdates() {
               <button
                 onClick={handleConnectEmail}
                 disabled={connecting}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-900 hover:bg-gray-800 text-white rounded-md disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-500 hover:bg-indigo-600 text-white rounded-md disabled:opacity-50 transition-colors"
               >
                 <Mail className="h-3.5 w-3.5" />
                 {connecting ? "Connecting..." : "Connect Email"}
@@ -284,7 +450,7 @@ export default function CentralizedUpdates() {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
-            Active ({stats?.pending || 0})
+            Active ({stats?.active || 0})
           </button>
           <button
             onClick={() => setViewMode("archived")}
@@ -294,34 +460,77 @@ export default function CentralizedUpdates() {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
-            Archived ({stats?.approved || 0})
+            Archived ({stats?.archived || 0})
           </button>
         </div>
         
         {/* Stats summary */}
-        {stats && stats.withProposals > 0 && viewMode === "active" && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-blue-600">
+        {stats && stats.withProposals > 0 && viewMode === "active" && !showProcessingSteps && (
+          <div className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700 bg-gray-50 px-3 py-1.5 rounded-md">
             <Database className="h-4 w-4" />
             {stats.withProposals} update{stats.withProposals > 1 ? 's' : ''} with tracker proposals
           </div>
         )}
+
+        {/* Processing Steps - shown when processing */}
+        <AnimatePresence mode="wait">
+          {showProcessingSteps && (
+            <motion.div
+              key="processing-steps"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{
+                duration: 0.3,
+                ease: "easeInOut",
+                opacity: { duration: 0.2 }
+              }}
+              className="mt-4 overflow-hidden"
+            >
+              <ProcessingSteps steps={processingSteps} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       
       {/* Updates list */}
       <div className="divide-y divide-gray-100">
         {updates.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
-            {viewMode === "active" 
+            {viewMode === "active"
               ? "No active updates. Process emails to see tracker proposals."
               : "No archived updates yet."}
           </div>
         ) : (
-          updates.map((update) => {
-            const isExpanded = expandedUpdates.has(update._id);
-            const isProcessing = processingUpdates.has(update._id);
-            
-            return (
-              <div key={update._id} className={`${isProcessing ? "opacity-50" : ""}`}>
+          <AnimatePresence mode="popLayout">
+            {updates.map((update, index) => {
+              const isExpanded = expandedUpdates.has(update._id);
+              const isProcessing = processingUpdates.has(update._id);
+
+              return (
+                <motion.div
+                  key={update._id}
+                  layout
+                  initial={{ opacity: 0, y: -20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 30,
+                    delay: index * 0.05 // Stagger effect for multiple items
+                  }}
+                  className={`${isProcessing ? "opacity-50" : ""} relative overflow-hidden border-l-2 border-transparent hover:border-gray-200 transition-colors`}
+                >
+                  {/* New item highlight pulse - shows for recent items */}
+                  {Date.now() - update.createdAt < 5000 && (
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-blue-50 to-transparent pointer-events-none"
+                      initial={{ opacity: 0.8 }}
+                      animate={{ opacity: 0 }}
+                      transition={{ duration: 2, ease: "easeOut" }}
+                    />
+                  )}
                 {/* Summary view */}
                 <div className="p-4">
                   <div className="flex justify-between items-start">
@@ -334,37 +543,34 @@ export default function CentralizedUpdates() {
                         <span className="text-xs text-gray-400">
                           {formatTimeAgo(update.createdAt)}
                         </span>
-                        {update.urgency && (
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${getUrgencyColor(update.urgency)}`}>
-                            {update.urgency}
-                          </span>
-                        )}
                       </div>
                       <h3 className="font-medium text-gray-900">{update.title}</h3>
                       <p className="text-sm text-gray-600 mt-1">{update.summary}</p>
                       
-                      {/* Tracker badges */}
-                      {update.trackerMatches.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
+                      {/* Tracker badges with data - only show if there are proposals */}
+                      {update.trackerProposals && update.trackerProposals.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          {/* Show tracker name badge */}
                           {update.trackerMatches.map((match) => (
                             <div
                               key={match.trackerId}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-900 rounded-md text-xs font-medium"
                             >
                               <Package className="h-3 w-3" />
                               <span>{match.trackerName}</span>
-                              <span className={`font-semibold ${getConfidenceColor(match.confidence)}`}>
-                                {Math.round(match.confidence * 100)}%
-                              </span>
                             </div>
                           ))}
-                        </div>
-                      )}
-                      
-                      {/* Proposal count */}
-                      {update.trackerProposals && update.trackerProposals.length > 0 && (
-                        <div className="mt-2 text-sm text-blue-600">
-                          {update.trackerProposals.length} tracker update{update.trackerProposals.length > 1 ? 's' : ''} proposed
+
+                          {/* Show column update badges from first proposal */}
+                          {update.trackerProposals[0].columnUpdates.map((col) => (
+                            <div
+                              key={col.columnKey}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-900 rounded-md text-xs"
+                            >
+                              <span className="font-medium">{col.columnName}:</span>
+                              <span>{String(col.proposedValue || '-')}</span>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -478,9 +684,10 @@ export default function CentralizedUpdates() {
                     )}
                   </div>
                 )}
-              </div>
-            );
-          })
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
       
