@@ -74,7 +74,6 @@ import type * as threads from "../threads.js";
 import type * as tracker_testing_testHelpers from "../tracker/testing/testHelpers.js";
 import type * as trackerAliases from "../trackerAliases.js";
 import type * as trackers from "../trackers.js";
-import type * as tracking from "../tracking.js";
 import type * as types_index from "../types/index.js";
 import type * as types_tracker from "../types/tracker.js";
 import type * as types from "../types.js";
@@ -162,7 +161,6 @@ declare const fullApi: ApiFromModules<{
   "tracker/testing/testHelpers": typeof tracker_testing_testHelpers;
   trackerAliases: typeof trackerAliases;
   trackers: typeof trackers;
-  tracking: typeof tracking;
   "types/index": typeof types_index;
   "types/tracker": typeof types_tracker;
   types: typeof types;
