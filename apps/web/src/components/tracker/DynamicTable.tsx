@@ -1,23 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useState, useMemo } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { Id } from "@packages/backend/convex/_generated/dataModel";
-import { 
-  ColumnDefinition, 
-  TrackerDataRow 
+import {
+  ColumnDefinition,
+  TrackerDataRow
 } from "@packages/backend/convex/types/tracker";
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Save, 
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Save,
   X,
   AlertTriangle,
-  Download
+  Download,
+  Tag
 } from "lucide-react";
 import AddRowModal from "./AddRowModal";
+import AliasManagementModal from "./AliasManagementModal";
 
 interface DynamicTableProps {
   tracker: {
@@ -36,9 +38,28 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
   const [editData, setEditData] = useState<Record<string, any>>({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
-  
+  const [showAliasModal, setShowAliasModal] = useState<{
+    trackerId: Id<"trackers">;
+    rowId: string;
+    primaryKeyValue: string;
+  } | null>(null);
+
   const updateRow = useMutation(api.trackers.updateRow);
   const deleteRow = useMutation(api.trackers.deleteRow);
+
+  // Get alias counts for all rows
+  const allAliases = useQuery(api.trackerAliases.getAllTrackerAliases, {
+    trackerId: tracker._id
+  });
+
+  // Calculate alias counts per row
+  const aliasCounts = useMemo(() => {
+    if (!allAliases) return {};
+    return Object.entries(allAliases).reduce((acc, [rowId, aliases]) => {
+      acc[rowId] = aliases.length;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [allAliases]);
   
   // Sort columns by order
   const sortedColumns = [...tracker.columns].sort((a, b) => a.order - b.order);
@@ -268,7 +289,16 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
                         {isEditing ? (
                           renderCellInput(column, editData[column.key])
                         ) : (
-                          formatCellValue(row.data[column.key], column.type)
+                          <div className="flex items-center gap-2">
+                            {formatCellValue(row.data[column.key], column.type)}
+                            {/* Show alias count badge for primary key column */}
+                            {column.key === tracker.primaryKeyColumn &&
+                             aliasCounts[row.rowId] > 0 && (
+                              <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">
+                                {aliasCounts[row.rowId]} alias{aliasCounts[row.rowId] > 1 ? 'es' : ''}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                     ))}
@@ -288,6 +318,17 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
                             title="Cancel"
                           >
                             <X className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setShowAliasModal({
+                              trackerId: tracker._id,
+                              rowId: row.rowId,
+                              primaryKeyValue: String(row.data[tracker.primaryKeyColumn] || row.rowId)
+                            })}
+                            className="p-1 text-purple-600 hover:text-purple-700"
+                            title="Manage Aliases"
+                          >
+                            <Tag className="h-4 w-4" />
                           </button>
                         </div>
                       ) : (
@@ -328,6 +369,16 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
             setShowAddModal(false);
             onRefresh();
           }}
+        />
+      )}
+
+      {/* Alias Management Modal */}
+      {showAliasModal && (
+        <AliasManagementModal
+          trackerId={showAliasModal.trackerId}
+          rowId={showAliasModal.rowId}
+          primaryKeyValue={showAliasModal.primaryKeyValue}
+          onClose={() => setShowAliasModal(null)}
         />
       )}
     </div>

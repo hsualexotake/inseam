@@ -1,0 +1,143 @@
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+import { workflow } from "./agents/workflows/manager";
+import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
+import type { FormattedEmail } from "./nylas/types";
+import { requireAuth } from "./helpers/auth";
+import { MAX_EMAIL_SUMMARY_COUNT } from "./nylas/config";
+import type { WorkflowId } from "@convex-dev/workflow";
+
+/**
+ * Centralized email processing with tracker awareness
+ * Uses workflow-based approach for reliable multi-step execution
+ */
+
+export const summarizeCentralizedInbox = action({
+  args: v.object({
+    emailCount: v.optional(v.number()),
+  }),
+  handler: async (ctx, { emailCount = 5 }): Promise<{
+    success: boolean;
+    message: string;
+    workflowId?: WorkflowId;
+    status?: string;
+    updatesCreated: number;
+    failedEmails?: number;
+    statistics?: {
+      totalEmails: number;
+      workflowStatus: string;
+    };
+  }> => {
+    const userId = await requireAuth(ctx);
+    
+    // Validate email count
+    const validatedCount = Math.min(Math.max(1, emailCount), MAX_EMAIL_SUMMARY_COUNT);
+    
+    // Fetch emails using existing Nylas integration
+    const emailData: { emails: FormattedEmail[] } = await ctx.runAction(api.nylas.actions.fetchRecentEmails, {
+      limit: validatedCount,
+      offset: 0,
+    });
+    
+    if (!emailData.emails || emailData.emails.length === 0) {
+      return {
+        success: false,
+        message: "No emails found to process",
+        updatesCreated: 0,
+      };
+    }
+    
+    // Check which emails have already been processed
+    const emailIds = emailData.emails.map((e: FormattedEmail) => e.id);
+    const processedChecks = await ctx.runQuery(
+      internal.emails.internal.checkProcessedEmailsBatch,
+      { userId, emailIds }
+    );
+    
+    // Filter to only new emails
+    const newEmails: FormattedEmail[] = emailData.emails.filter(
+      (_: FormattedEmail, idx: number) => !processedChecks[idx]
+    );
+    
+    if (newEmails.length === 0) {
+      return {
+        success: true,
+        message: "No new emails since last check",
+        updatesCreated: 0,
+      };
+    }
+    
+    // Get user's active trackers with full schema
+    const trackers = await ctx.runQuery(api.trackers.listTrackers, { 
+      activeOnly: true 
+    });
+    
+    // Prepare tracker context for the workflow
+    const trackerContext = trackers.map((t: any) => ({
+      id: t._id,
+      name: t.name,
+      description: t.description || '',
+      primaryKeyColumn: t.primaryKeyColumn,
+      columns: t.columns.map((col: any) => ({
+        id: col.id,
+        name: col.name,
+        key: col.key,
+        type: col.type,
+        required: col.required,
+        options: col.options,
+        aiEnabled: col.aiEnabled || false,
+        aiAliases: col.aiAliases || [],
+      })),
+    }));
+    
+    // Format emails for workflow
+    const emailsForWorkflow = newEmails.map((email: FormattedEmail) => ({
+      id: email.id,
+      subject: email.subject,
+      from: {
+        name: email.from.name || undefined,
+        email: email.from.email,
+      },
+      date: email.date,
+      body: email.body || undefined,
+      snippet: email.snippet || undefined,
+    }));
+    
+    // Start the batch email workflow with onComplete handler
+    const workflowId: WorkflowId = await workflow.start(
+      ctx,
+      internal.agents.workflows.definitions.emailWorkflow.batchEmailWorkflow,
+      {
+        emails: emailsForWorkflow,
+        trackers: trackerContext,
+        userId,
+      },
+      {
+        onComplete: internal.agents.workflows.handlers.emailHandlers.handleBatchEmailComplete,
+        context: {
+          userId,
+          emailIds,
+        },
+      }
+    );
+    
+    // Get workflow status to return immediately
+    const status = await workflow.status(ctx, workflowId);
+    
+    // Return workflow started status
+    // The onComplete handler will process results and mark emails when done
+    return {
+      success: true,
+      message: `Started workflow to process ${newEmails.length} email(s)`,
+      workflowId,
+      status: status.type,
+      updatesCreated: 0, // Will be updated in onComplete handler
+      failedEmails: 0,
+      statistics: {
+        totalEmails: newEmails.length,
+        workflowStatus: status.type,
+      },
+    };
+  },
+});
