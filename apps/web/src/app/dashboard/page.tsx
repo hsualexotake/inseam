@@ -17,8 +17,6 @@ import { cn } from "@/lib/utils";
 import { Logo, LogoIcon } from "@/components/dashboard/LogoComponents";
 import { useClerk } from "@clerk/nextjs";
 import ModernHeader from "@/components/dashboard/ModernHeader";
-import UnifiedUpdates from "@/components/dashboard/UnifiedUpdates";
-import SimpleSKUTracking from "@/components/dashboard/SimpleSKUTracking";
 import CentralizedUpdates from "@/components/dashboard/CentralizedUpdates";
 
 export default function DashboardPage() {
@@ -123,16 +121,10 @@ export default function DashboardPage() {
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 pt-8">
             <ModernHeader />
-            
-            <div className="mb-8 mx-auto" style={{ maxWidth: '84rem' }}>
-              <UnifiedUpdates />
-            </div>
-            
+
             <div className="mb-8 mx-auto" style={{ maxWidth: '84rem' }}>
               <CentralizedUpdates />
             </div>
-            
-            <SimpleSKUTracking />
           </div>
         </div>
       </main>
