@@ -249,6 +249,7 @@ export const internalCreateUpdate = internalMutation({
     trackerMatches: v.optional(v.array(v.object({
       trackerId: v.id("trackers"),
       trackerName: v.string(),
+      trackerColor: v.optional(v.string()),
       confidence: v.number(),
     }))),
     type: v.string(),

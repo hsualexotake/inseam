@@ -1,14 +1,16 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
+import { requireAuth } from "./helpers/auth";
 import { ColumnDefinition } from "./types";
-import { 
-  validateRowData, 
-  generateSlug, 
+import {
+  validateRowData,
+  generateSlug,
   validateColumns,
   parseCSV,
   mapCSVToTrackerData
 } from "./lib/trackerValidation";
+import { validateFolderColor } from "./lib/folderHelpers";
 import { defaultTemplates } from "./lib/trackerTemplates";
 import { validateImportData } from "./lib/trackerBulkImport";
 import { TRACKER_LIMITS } from "./lib/trackerConstants";
@@ -22,6 +24,8 @@ export const createTracker = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
+    folderId: v.optional(v.id("trackerFolders")), // Add folder support
+    color: v.optional(v.string()), // Hex color for visual identification
     columns: v.array(v.object({
       id: v.string(),
       name: v.string(),
@@ -44,10 +48,7 @@ export const createTracker = mutation({
     templateKey: v.optional(v.string()), // Use a template
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const userId = await requireAuth(ctx);
 
     // Validate input lengths
     if (args.name.length > TRACKER_LIMITS.NAME_MAX_LENGTH) {
@@ -105,14 +106,19 @@ export const createTracker = mutation({
       }
     }
 
+    // Validate and set color
+    const color = validateFolderColor(args.color);
+
     // Create tracker
     const trackerId = await ctx.db.insert("trackers", {
       name: args.name,
       slug: finalSlug,
       description: args.description,
+      folderId: args.folderId,
+      color,
       columns: columns as ColumnDefinition[],
       primaryKeyColumn,
-      userId: identity.subject,
+      userId: userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       isActive: true,
@@ -128,6 +134,7 @@ export const updateTracker = mutation({
     updates: v.object({
       name: v.optional(v.string()),
       description: v.optional(v.string()),
+      color: v.optional(v.string()),
       columns: v.optional(v.array(v.object({
         id: v.string(),
         name: v.string(),
@@ -146,21 +153,19 @@ export const updateTracker = mutation({
         aiEnabled: v.optional(v.boolean()),
         aiAliases: v.optional(v.array(v.string())),
       }))),
+      primaryKeyColumn: v.optional(v.string()),
       isActive: v.optional(v.boolean()),
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const userId = await requireAuth(ctx);
 
     const tracker = await ctx.db.get(args.trackerId);
     if (!tracker) {
       throw new Error("Tracker not found");
     }
 
-    if (tracker.userId !== identity.subject) {
+    if (tracker.userId !== userId) {
       throw new Error("Not authorized to update this tracker");
     }
 
@@ -172,22 +177,40 @@ export const updateTracker = mutation({
       }
     }
 
+    // Validate color if being updated
+    let validatedColor: string | undefined;
+    if (args.updates.color !== undefined) {
+      validatedColor = validateFolderColor(args.updates.color);
+    }
+
     // Build update object with proper typing
     const updateData: Partial<{
       name: string;
       description?: string;
+      color?: string;
       columns: ColumnDefinition[];
+      primaryKeyColumn?: string;
       updatedAt: number;
     }> = {
       ...args.updates,
       updatedAt: Date.now(),
     };
+
+    // Use validated color if provided
+    if (validatedColor !== undefined) {
+      updateData.color = validatedColor;
+    }
     
     // Only include columns if they're being updated
     if (args.updates.columns) {
       updateData.columns = args.updates.columns as ColumnDefinition[];
     }
-    
+
+    // Only include primaryKeyColumn if it's being updated
+    if (args.updates.primaryKeyColumn) {
+      updateData.primaryKeyColumn = args.updates.primaryKeyColumn;
+    }
+
     await ctx.db.patch(args.trackerId, updateData);
 
     return { success: true };
@@ -199,17 +222,14 @@ export const deleteTracker = mutation({
     trackerId: v.id("trackers"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const userId = await requireAuth(ctx);
 
     const tracker = await ctx.db.get(args.trackerId);
     if (!tracker) {
       throw new Error("Tracker not found");
     }
 
-    if (tracker.userId !== identity.subject) {
+    if (tracker.userId !== userId) {
       throw new Error("Not authorized to delete this tracker");
     }
 
@@ -218,6 +238,41 @@ export const deleteTracker = mutation({
 
     // Delete the tracker
     await ctx.db.delete(args.trackerId);
+
+    return { success: true };
+  },
+});
+
+export const moveTrackerToFolder = mutation({
+  args: {
+    trackerId: v.id("trackers"),
+    folderId: v.optional(v.union(v.id("trackerFolders"), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    const tracker = await ctx.db.get(args.trackerId);
+    if (!tracker) {
+      throw new Error("Tracker not found");
+    }
+
+    if (tracker.userId !== userId) {
+      throw new Error("Not authorized to move this tracker");
+    }
+
+    // If folderId is provided, verify it belongs to the user
+    if (args.folderId) {
+      const folder = await ctx.db.get(args.folderId);
+      if (!folder || folder.userId !== userId) {
+        throw new Error("Folder not found or not authorized");
+      }
+    }
+
+    // Update tracker's folder
+    await ctx.db.patch(args.trackerId, {
+      folderId: args.folderId === null ? undefined : args.folderId,
+      updatedAt: Date.now(),
+    });
 
     return { success: true };
   },
@@ -238,10 +293,7 @@ export const addRow = mutation({
     )),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const userId = await requireAuth(ctx);
 
     const tracker = await ctx.db.get(args.trackerId);
     if (!tracker) {
@@ -249,7 +301,7 @@ export const addRow = mutation({
     }
     
     // Check authorization
-    if (tracker.userId !== identity.subject) {
+    if (tracker.userId !== userId) {
       throw new Error("Not authorized to add data to this tracker");
     }
 
@@ -284,9 +336,9 @@ export const addRow = mutation({
       rowId: String(primaryKeyValue),
       data: validation.data,
       createdAt: Date.now(),
-      createdBy: identity.subject,
+      createdBy: userId,
       updatedAt: Date.now(),
-      updatedBy: identity.subject,
+      updatedBy: userId,
     });
 
     return { rowId: String(primaryKeyValue), data: validation.data };
@@ -305,10 +357,7 @@ export const updateRow = mutation({
     )),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const userId = await requireAuth(ctx);
 
     const tracker = await ctx.db.get(args.trackerId);
     if (!tracker) {
@@ -316,7 +365,7 @@ export const updateRow = mutation({
     }
     
     // Verify user owns the tracker
-    if (tracker.userId !== identity.subject) {
+    if (tracker.userId !== userId) {
       throw new Error("Not authorized to update this tracker");
     }
 
@@ -352,7 +401,7 @@ export const updateRow = mutation({
     await ctx.db.patch(row._id, {
       data: validation.data,
       updatedAt: Date.now(),
-      updatedBy: identity.subject,
+      updatedBy: userId,
     });
 
     return { success: true, data: validation.data };
@@ -365,10 +414,7 @@ export const deleteRow = mutation({
     rowId: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const userId = await requireAuth(ctx);
 
     // Verify user owns the tracker
     const tracker = await ctx.db.get(args.trackerId);
@@ -376,7 +422,7 @@ export const deleteRow = mutation({
       throw new Error("Tracker not found");
     }
     
-    if (tracker.userId !== identity.subject) {
+    if (tracker.userId !== userId) {
       throw new Error("Not authorized to delete from this tracker");
     }
 
@@ -411,10 +457,7 @@ export const bulkImport = mutation({
     mode: v.union(v.literal("append"), v.literal("replace"), v.literal("update")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const userId = await requireAuth(ctx);
 
     // Add size limits for production
     if (args.rows.length > TRACKER_LIMITS.MAX_IMPORT_ROWS) {
@@ -427,7 +470,7 @@ export const bulkImport = mutation({
     }
 
     // Validate permissions and tracker state
-    validateImportData(tracker, identity.subject);
+    validateImportData(tracker, userId);
 
     // If replace mode, delete all existing data first
     if (args.mode === "replace") {
@@ -439,7 +482,7 @@ export const bulkImport = mutation({
       rows: args.rows,
       tracker,
       mode: args.mode,
-      userId: identity.subject,
+      userId: userId,
       db: ctx.db,
       startIndex: 0,
     });
@@ -478,6 +521,8 @@ export const listTrackers = query({
   args: {
     userId: v.optional(v.string()),
     activeOnly: v.optional(v.boolean()),
+    folderId: v.optional(v.union(v.id("trackerFolders"), v.null())),
+    includeSubfolders: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -487,11 +532,51 @@ export const listTrackers = query({
       return [];
     }
 
-    // Use the appropriate index based on filtering needs
+    // If folder filtering is requested
+    if (args.folderId !== undefined) {
+      let folderIds: (string | undefined)[] = [args.folderId ?? undefined];
+
+      // If includeSubfolders is true, get all descendant folders
+      if (args.includeSubfolders && args.folderId) {
+        const allFolders = await ctx.db
+          .query("trackerFolders")
+          .withIndex("by_user", q => q.eq("userId", userId))
+          .collect();
+
+        const getDescendantIds = (parentId: string): string[] => {
+          const children = allFolders.filter(f => f.parentId === parentId);
+          const childIds = children.map(c => c._id);
+          return [...childIds, ...childIds.flatMap(id => getDescendantIds(id))];
+        };
+
+        folderIds = [args.folderId, ...getDescendantIds(args.folderId)];
+      }
+
+      // Get trackers in specified folders
+      const trackers = await ctx.db
+        .query("trackers")
+        .withIndex("by_user", q => q.eq("userId", userId))
+        .filter(q => {
+          const folderFilter = args.folderId === null
+            ? q.eq(q.field("folderId"), undefined)
+            : folderIds.includes(undefined)
+              ? q.or(q.eq(q.field("folderId"), undefined), ...folderIds.filter(id => id).map(id => q.eq(q.field("folderId"), id)))
+              : q.or(...folderIds.filter(id => id).map(id => q.eq(q.field("folderId"), id)));
+
+          return args.activeOnly
+            ? q.and(folderFilter, q.eq(q.field("isActive"), true))
+            : folderFilter;
+        })
+        .collect();
+
+      return trackers;
+    }
+
+    // Original behavior when no folder filtering
     if (args.activeOnly) {
       return await ctx.db
         .query("trackers")
-        .withIndex("by_user_active", q => 
+        .withIndex("by_user_active", q =>
           q.eq("userId", userId).eq("isActive", true)
         )
         .collect();
@@ -508,8 +593,6 @@ export const getTrackerData = query({
   args: {
     trackerId: v.id("trackers"),
     paginationOpts: paginationOptsValidator,
-    sortBy: v.optional(v.string()),
-    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
   handler: async (ctx, args) => {
     const tracker = await ctx.db.get(args.trackerId);
@@ -517,30 +600,12 @@ export const getTrackerData = query({
       throw new Error("Tracker not found");
     }
 
-    // Use Convex's built-in pagination
+    // Use Convex's built-in pagination with default creation order
     const paginatedResults = await ctx.db
       .query("trackerData")
       .withIndex("by_tracker", q => q.eq("trackerId", args.trackerId))
-      .order(args.sortOrder || "asc")
+      .order("asc")
       .paginate(args.paginationOpts);
-
-    // If sorting by a specific field is needed, we need to handle it differently
-    // Note: For complex sorting, consider creating additional indexes
-    if (args.sortBy) {
-      // Sort the current page of results
-      paginatedResults.page.sort((a, b) => {
-        const aVal = a.data[args.sortBy!];
-        const bVal = b.data[args.sortBy!];
-        
-        // Handle null/undefined values
-        if (aVal === null || aVal === undefined) return 1;
-        if (bVal === null || bVal === undefined) return -1;
-        
-        if (aVal < bVal) return args.sortOrder === "desc" ? 1 : -1;
-        if (aVal > bVal) return args.sortOrder === "desc" ? -1 : 1;
-        return 0;
-      });
-    }
 
     return {
       tracker,
@@ -566,10 +631,7 @@ export const importCSV = mutation({
     mode: v.union(v.literal("append"), v.literal("replace"), v.literal("update")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const userId = await requireAuth(ctx);
 
     // Add CSV size limit
     if (args.csvContent.length > TRACKER_LIMITS.MAX_CSV_SIZE_BYTES) {
@@ -582,7 +644,7 @@ export const importCSV = mutation({
     }
 
     // Validate permissions and tracker state
-    validateImportData(tracker, identity.subject);
+    validateImportData(tracker, userId);
 
     // Parse CSV
     const { headers, rows } = parseCSV(args.csvContent);
@@ -605,7 +667,7 @@ export const importCSV = mutation({
       rows: mappedData,
       tracker,
       mode: args.mode,
-      userId: identity.subject,
+      userId: userId,
       db: ctx.db,
       startIndex: 0,
     });

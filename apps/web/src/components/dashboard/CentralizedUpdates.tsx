@@ -12,10 +12,12 @@ import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import EditableProposalCard from "./centralized-updates/EditableProposalCard";
 import ProcessingSteps, { type ProcessingStep } from "./ProcessingSteps";
 import { AnimatePresence, motion } from "framer-motion";
+import { getColorClasses } from "../ui/ColorPicker";
 
 interface TrackerMatch {
   trackerId: Id<"trackers">;
   trackerName: string;
+  trackerColor?: string;
   confidence: number;
 }
 
@@ -31,6 +33,7 @@ interface ColumnUpdate {
 interface TrackerProposal {
   trackerId: Id<"trackers">;
   trackerName: string;
+  trackerColor?: string;
   rowId: string;
   isNewRow: boolean;
   columnUpdates: ColumnUpdate[];
@@ -554,9 +557,9 @@ export default function CentralizedUpdates() {
                           {update.trackerMatches.map((match) => (
                             <div
                               key={match.trackerId}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-900 rounded-md text-xs font-medium"
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border ${getColorClasses(match.trackerColor, 'badge')}`}
                             >
-                              <Package className="h-3 w-3" />
+                              <Package className={`h-3 w-3 ${getColorClasses(match.trackerColor, 'icon')}`} />
                               <span>{match.trackerName}</span>
                             </div>
                           ))}
@@ -565,7 +568,7 @@ export default function CentralizedUpdates() {
                           {update.trackerProposals[0].columnUpdates.map((col) => (
                             <div
                               key={col.columnKey}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-900 rounded-md text-xs"
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border ${getColorClasses(update.trackerMatches[0]?.trackerColor, 'badge')}`}
                             >
                               <span className="font-medium">{col.columnName}:</span>
                               <span>{String(col.proposedValue || '-')}</span>

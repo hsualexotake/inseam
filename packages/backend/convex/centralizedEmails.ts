@@ -78,6 +78,7 @@ export const summarizeCentralizedInbox = action({
       id: t._id,
       name: t.name,
       description: t.description || '',
+      color: t.color,
       primaryKeyColumn: t.primaryKeyColumn,
       columns: t.columns.map((col: any) => ({
         id: col.id,

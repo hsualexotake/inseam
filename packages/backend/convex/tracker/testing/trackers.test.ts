@@ -103,7 +103,7 @@ describe("Tracker CRUD Operations", () => {
       
       await expectAsyncError(
         () => t.mutation(api.trackers.createTracker, trackerData),
-        "Not authenticated"
+        "Unauthenticated call to protected function"
       );
     });
 
@@ -489,52 +489,6 @@ describe("Tracker CRUD Operations", () => {
 
       expect(result.page.length).toBe(5);
       expect(result.isDone).toBe(false);
-    });
-
-    it("should sort tracker data", async () => {
-      const { trackerId } = await t.withIdentity(mockUser).mutation(
-        api.trackers.createTracker,
-        createMockTracker()
-      );
-
-      // Add rows with different quantities
-      await t.withIdentity(mockUser).mutation(
-        api.trackers.addRow,
-        {
-          trackerId,
-          data: { ...createMockRowData("TEST-001"), quantity: 300 },
-        }
-      );
-      await t.withIdentity(mockUser).mutation(
-        api.trackers.addRow,
-        {
-          trackerId,
-          data: { ...createMockRowData("TEST-002"), quantity: 100 },
-        }
-      );
-      await t.withIdentity(mockUser).mutation(
-        api.trackers.addRow,
-        {
-          trackerId,
-          data: { ...createMockRowData("TEST-003"), quantity: 200 },
-        }
-      );
-
-      // Get sorted data
-      const result = await t.withIdentity(mockUser).query(
-        api.trackers.getTrackerData,
-        {
-          trackerId,
-          sortBy: "quantity",
-          sortOrder: "asc",
-          paginationOpts: createMockPaginationOpts(10),
-        }
-      );
-
-      expect(result.page).toHaveLength(3);
-      expect(result.page[0].data.quantity).toBe(100);
-      expect(result.page[1].data.quantity).toBe(200);
-      expect(result.page[2].data.quantity).toBe(300);
     });
   });
 

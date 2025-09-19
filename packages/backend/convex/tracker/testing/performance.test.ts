@@ -176,7 +176,11 @@ describe("Performance Tests", () => {
       expect(pageCount).toBeLessThanOrEqual(4); // With pageSize 15, should be at most 4 pages
     });
 
-    it("should maintain sorting consistency across paginated results", async () => {
+    // Removed: Sorting tests - custom field sorting feature was removed due to fundamental
+    // incompatibility with pagination. Sorting must occur before pagination in Convex,
+    // but dynamic JSON fields cannot be indexed for sorting.
+
+    it.skip("should maintain sorting consistency across paginated results", async () => {
       const { trackerId } = await t.withIdentity(mockUser).mutation(
         api.trackers.createTracker,
         createMockTracker()
@@ -216,8 +220,6 @@ describe("Performance Tests", () => {
           api.trackers.getTrackerData,
           {
             trackerId,
-            sortBy: "quantity",
-            sortOrder: "asc",
             paginationOpts: { numItems: pageSize, cursor: currentCursor },
           }
         );
@@ -259,8 +261,6 @@ describe("Performance Tests", () => {
           api.trackers.getTrackerData,
           {
             trackerId,
-            sortBy: "quantity",
-            sortOrder: "asc",
             paginationOpts: { numItems: testPageSize, cursor: testCursor },
           }
         );
@@ -279,7 +279,7 @@ describe("Performance Tests", () => {
       }
     });
 
-    it("should handle sorting efficiently with large datasets", async () => {
+    it.skip("should handle sorting efficiently with large datasets", async () => {
       const { trackerId } = await t.withIdentity(mockUser).mutation(
         api.trackers.createTracker,
         createMockTracker()
@@ -310,8 +310,6 @@ describe("Performance Tests", () => {
           api.trackers.getTrackerData,
           {
             trackerId,
-            sortBy,
-            sortOrder,
             paginationOpts: createMockPaginationOpts(50),
           }
         );
