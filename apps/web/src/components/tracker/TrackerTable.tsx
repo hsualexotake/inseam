@@ -14,14 +14,16 @@ import {
   Trash2,
   Save,
   X,
-  AlertTriangle,
   Download,
-  Tag
+  Tag,
+  Sparkles
 } from "lucide-react";
 import AddRowModal from "./AddRowModal";
 import AliasManagementModal from "./AliasManagementModal";
+import { cn } from "@/lib/utils";
+import { ColumnHeader } from "./ColumnPopover";
 
-interface DynamicTableProps {
+interface TrackerTableProps {
   tracker: {
     _id: Id<"trackers">;
     name: string;
@@ -30,10 +32,9 @@ interface DynamicTableProps {
     primaryKeyColumn: string;
   };
   data: TrackerDataRow[];
-  onRefresh: () => void;
 }
 
-export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableProps) {
+export default function TrackerTable({ tracker, data }: TrackerTableProps) {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editData, setEditData] = useState<Record<string, any>>({});
   const [showAddModal, setShowAddModal] = useState(false);
@@ -60,22 +61,22 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
       return acc;
     }, {} as Record<string, number>);
   }, [allAliases]);
-  
+
   // Sort columns by order
   const sortedColumns = [...tracker.columns].sort((a, b) => a.order - b.order);
-  
+
   // Start editing
   const startEdit = (row: TrackerDataRow) => {
     setEditingRow(row.rowId);
     setEditData(row.data);
   };
-  
+
   // Cancel editing
   const cancelEdit = () => {
     setEditingRow(null);
     setEditData({});
   };
-  
+
   // Save edits
   const saveEdit = async (rowId: string) => {
     try {
@@ -86,26 +87,24 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
       });
       setEditingRow(null);
       setEditData({});
-      onRefresh();
     } catch (error) {
       console.error("Failed to update row:", error);
       alert("Failed to update row. Please check your data and try again.");
     }
   };
-  
+
   // Delete row
   const handleDelete = async (rowId: string) => {
     if (!confirm("Are you sure you want to delete this row?")) {
       return;
     }
-    
+
     setDeletingRow(rowId);
     try {
       await deleteRow({
         trackerId: tracker._id,
         rowId,
       });
-      onRefresh();
     } catch (error) {
       console.error("Failed to delete row:", error);
       alert("Failed to delete row. Please try again.");
@@ -113,34 +112,34 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
       setDeletingRow(null);
     }
   };
-  
+
   // Format cell value for display
   const formatCellValue = (value: any, type: ColumnDefinition["type"]) => {
-    if (value === null || value === undefined) return "—";
-    
+    if (value === null || value === undefined) return "-";
+
     switch (type) {
       case "date":
         return new Date(value).toLocaleDateString();
       case "boolean":
-        return value ? "✓" : "✗";
+        return value ? "Yes" : "No";
       case "number":
         return Number(value).toLocaleString();
       default:
         return String(value);
     }
   };
-  
+
   // Render cell input for editing
   const renderCellInput = (column: ColumnDefinition, value: any) => {
     const commonProps = {
       value: value || "",
-      onChange: (e: any) => setEditData({ 
-        ...editData, 
-        [column.key]: column.type === "boolean" ? e.target.checked : e.target.value 
+      onChange: (e: any) => setEditData({
+        ...editData,
+        [column.key]: column.type === "boolean" ? e.target.checked : e.target.value
       }),
       className: "w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500",
     };
-    
+
     switch (column.type) {
       case "select":
         return (
@@ -151,7 +150,7 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
             ))}
           </select>
         );
-      
+
       case "boolean":
         return (
           <input
@@ -161,7 +160,7 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
             className="w-4 h-4"
           />
         );
-      
+
       case "date":
         return (
           <input
@@ -170,7 +169,7 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
             value={value ? new Date(value).toISOString().split('T')[0] : ""}
           />
         );
-      
+
       case "number":
         return (
           <input
@@ -178,7 +177,7 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
             {...commonProps}
           />
         );
-      
+
       default:
         return (
           <input
@@ -188,11 +187,11 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
         );
     }
   };
-  
+
   // Export to CSV
   const exportToCSV = () => {
     const headers = sortedColumns.map(col => col.name).join(",");
-    const rows = data.map(row => 
+    const rows = data.map(row =>
       sortedColumns.map(col => {
         const value = row.data[col.key];
         // Escape commas and quotes in values
@@ -200,7 +199,7 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
         return escaped.includes(",") ? `"${escaped}"` : escaped;
       }).join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -210,20 +209,9 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
     a.click();
     URL.revokeObjectURL(url);
   };
-  
+
   return (
     <div className="space-y-4">
-      {/* Temporary Warning */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-        <div>
-          <h3 className="font-semibold text-yellow-900">Temporary View</h3>
-          <p className="text-sm text-yellow-700 mt-1">
-            This is a temporary interface for testing. A proper spreadsheet component will replace this view.
-          </p>
-        </div>
-      </div>
-      
       {/* Actions */}
       <div className="flex justify-between items-center">
         <div className="text-sm text-gray-600">
@@ -246,32 +234,39 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
           </button>
         </div>
       </div>
-      
+
       {/* Table */}
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+      <div className={cn(
+        "my-6 overflow-auto rounded-xl border bg-white",
+        "max-w-full"
+      )}>
+        <table className="w-full whitespace-nowrap text-sm text-gray-600">
+          <thead className="border-b bg-gray-50">
             <tr>
               {sortedColumns.map(column => (
                 <th
                   key={column.id}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  className="p-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs border-l first:border-l-0"
                   style={{ minWidth: column.width || 120 }}
                 >
-                  {column.name}
-                  {column.required && <span className="text-red-500 ml-1">*</span>}
+                  <ColumnHeader
+                    column={column}
+                    isPrimaryKey={column.key === tracker.primaryKeyColumn}
+                    trackerId={tracker._id}
+                    required={column.required}
+                  />
                 </th>
               ))}
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">
+              <th className="p-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs border-l">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
+          <tbody>
             {data.length === 0 ? (
               <tr>
-                <td 
-                  colSpan={sortedColumns.length + 1} 
+                <td
+                  colSpan={sortedColumns.length + 1}
                   className="px-4 py-8 text-center text-gray-500"
                 >
                   No data yet. Click &quot;Add Row&quot; to get started.
@@ -281,28 +276,48 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
               data.map(row => {
                 const isEditing = editingRow === row.rowId;
                 const isDeleting = deletingRow === row.rowId;
-                
+
                 return (
-                  <tr key={row._id} className={`hover:bg-gray-50 ${isDeleting ? "opacity-50" : ""}`}>
+                  <tr key={row._id} className={cn(
+                    "border-b last:border-0 hover:bg-gray-50",
+                    isDeleting && "opacity-50"
+                  )}>
                     {sortedColumns.map(column => (
-                      <td key={column.id} className="px-4 py-3 text-sm text-gray-900">
+                      <td key={column.id} className="p-4 border-l first:border-l-0">
                         {isEditing ? (
                           renderCellInput(column, editData[column.key])
                         ) : (
-                          <div className="flex items-center gap-2">
-                            {formatCellValue(row.data[column.key], column.type)}
-                            {/* Show alias count badge for primary key column */}
-                            {column.key === tracker.primaryKeyColumn &&
-                             aliasCounts[row.rowId] > 0 && (
-                              <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">
-                                {aliasCounts[row.rowId]} alias{aliasCounts[row.rowId] > 1 ? 'es' : ''}
+                          <div className="inline-flex flex-row items-center gap-2">
+                            {column.key === tracker.primaryKeyColumn ? (
+                              <>
+                                <code className="rounded-md bg-primary/10 p-1 text-primary">
+                                  {formatCellValue(row.data[column.key], column.type)}
+                                </code>
+                                {aliasCounts[row.rowId] > 0 && (
+                                  <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">
+                                    {aliasCounts[row.rowId]} alias{aliasCounts[row.rowId] > 1 ? 'es' : ''}
+                                  </span>
+                                )}
+                              </>
+                            ) : column.type === "date" && row.data[column.key] ? (
+                              <code className="rounded-md bg-gray-100 p-1 text-gray-700">
+                                {formatCellValue(row.data[column.key], column.type)}
+                              </code>
+                            ) : (
+                              <span className="text-gray-900">
+                                {formatCellValue(row.data[column.key], column.type)}
+                              </span>
+                            )}
+                            {column.aiEnabled && row.data[column.key] && (
+                              <span title="AI-enhanced">
+                                <Sparkles className="h-3 w-3 text-purple-500" />
                               </span>
                             )}
                           </div>
                         )}
                       </td>
                     ))}
-                    <td className="px-4 py-3 text-sm">
+                    <td className="p-4 border-l">
                       {isEditing ? (
                         <div className="flex gap-1">
                           <button
@@ -359,7 +374,7 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
           </tbody>
         </table>
       </div>
-      
+
       {/* Add Row Modal */}
       {showAddModal && (
         <AddRowModal
@@ -367,7 +382,6 @@ export default function DynamicTable({ tracker, data, onRefresh }: DynamicTableP
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            onRefresh();
           }}
         />
       )}

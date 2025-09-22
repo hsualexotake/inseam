@@ -42,6 +42,8 @@ export const analyzeEmailWithAgent = internalAction({
         options: v.optional(v.array(v.string())),
         aiEnabled: v.optional(v.boolean()),
         aiAliases: v.optional(v.array(v.string())),
+        description: v.optional(v.string()),
+        color: v.optional(v.string()),
       })),
     })),
     userId: v.string(),
@@ -163,6 +165,8 @@ export const createTrackerProposals = internalAction({
         options: v.optional(v.array(v.string())),
         aiEnabled: v.optional(v.boolean()),
         aiAliases: v.optional(v.array(v.string())),
+        description: v.optional(v.string()),
+        color: v.optional(v.string()),
       })),
     })),
     email: v.object({
@@ -197,6 +201,7 @@ export const createTrackerProposals = internalAction({
             columnKey: key,
             columnName: column.name,
             columnType: column.type,
+            columnColor: column.color, // Include column color for UI display
             currentValue: null, // Will be filled if row exists
             proposedValue: value,
             confidence: trackerExtractedData.confidence[key] || match.confidence,
@@ -287,6 +292,8 @@ export const performLLMExtraction = internalAction({
         aiEnabled: v.optional(v.boolean()),
         aiAliases: v.optional(v.array(v.string())),
         options: v.optional(v.array(v.string())),
+        description: v.optional(v.string()),
+        color: v.optional(v.string()),
       })),
       description: v.optional(v.string()),
     })),

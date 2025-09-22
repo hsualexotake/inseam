@@ -14,6 +14,8 @@ export interface ColumnDefinition {
   width?: number;
   aiEnabled?: boolean;
   aiAliases?: string[];
+  description?: string;
+  color?: string;
 }
 
 /**

@@ -8,6 +8,13 @@
   --breakpoint-xl: 1440px;
 
   --color-primary: #0d87e1;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #111827;
+  --color-secondary: #f3f4f6;
+  --color-secondary-foreground: #1f2937;
+  --color-muted: #e5e7eb;
+  --color-muted-foreground: #6b7280;
+  --color-background: #ffffff;
 
   --font-inter: Inter, sans-serif;
   --font-lato: Lato, sans-serif;
@@ -39,6 +46,14 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+  :root {
+    --primary: 202deg 96% 47%;
+  }
+
+  .dark {
+    --primary: 202deg 96% 67%;
+  }
+
   *,
   ::after,
   ::before,

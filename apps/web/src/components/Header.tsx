@@ -65,14 +65,6 @@ export default function Header() {
                         Dashboard
                       </button>
                     </Link>
-                    <Link href="/emailsummary">
-                      <button
-                        type="button"
-                        className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-[22px] py-[11px] button"
-                      >
-                        Email Summary
-                      </button>
-                    </Link>
                     <Link href="/notes">
                       <button
                         type="button"
@@ -140,12 +132,6 @@ export default function Header() {
                       className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-5 py-1.5 button"
                     >
                       Dashboard
-                    </Link>
-                    <Link
-                      href="/emailsummary"
-                      className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-5 py-1.5 button"
-                    >
-                      Email Summary
                     </Link>
                     <Link
                       href="/notes"

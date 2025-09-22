@@ -12,8 +12,7 @@ import {
   HelpCircle,
   LogOut,
   Package,
-  ArrowLeft,
-  RefreshCw
+  ArrowLeft
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -21,7 +20,7 @@ import { Logo, LogoIcon } from "@/components/dashboard/LogoComponents";
 import { useClerk } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
-import DynamicTable from "@/components/tracker/DynamicTable";
+import TrackerTable from "@/components/tracker/TrackerTable";
 import Link from "next/link";
 
 export default function TrackerViewPage() {
@@ -29,18 +28,13 @@ export default function TrackerViewPage() {
   const slug = params.slug as string;
   const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  
-  // Fetch tracker and data
+  // Fetch tracker and data - Convex handles real-time updates automatically
   const tracker = useQuery(api.trackers.getTracker, { slug });
   const trackerData = useQuery(
-    api.trackers.getTrackerData, 
+    api.trackers.getTrackerData,
     tracker ? { trackerId: tracker._id, paginationOpts: { numItems: 1000, cursor: null } } : "skip"
   );
-  
-  const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
-  };
+
 
   const links = [
     {
@@ -140,22 +134,14 @@ export default function TrackerViewPage() {
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 pt-8">
             {/* Breadcrumb */}
-            <div className="mb-6 flex justify-between items-center">
-              <Link 
-                href="/tracker" 
+            <div className="mb-6">
+              <Link
+                href="/tracker"
                 className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Trackers
               </Link>
-              
-              <button
-                onClick={handleRefresh}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
             </div>
             
             {/* Content */}
@@ -182,8 +168,7 @@ export default function TrackerViewPage() {
                 </div>
                 
                 {/* Table */}
-                <DynamicTable
-                  key={refreshKey}
+                <TrackerTable
                   tracker={{
                     _id: tracker._id,
                     name: tracker.name,
@@ -192,7 +177,6 @@ export default function TrackerViewPage() {
                     primaryKeyColumn: tracker.primaryKeyColumn,
                   }}
                   data={trackerData.page}
-                  onRefresh={handleRefresh}
                 />
               </div>
             )}

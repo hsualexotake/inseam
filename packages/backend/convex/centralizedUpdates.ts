@@ -156,6 +156,7 @@ async function upsertTrackerRow(
   }
 }
 
+
 // Get paginated centralized updates
 export const getCentralizedUpdates = query({
   args: {
@@ -187,7 +188,7 @@ export const getCentralizedUpdates = query({
       );
     }
     
-    
+
     return await query.order("desc").paginate(args.paginationOpts);
   },
 });
@@ -271,6 +272,7 @@ export const internalCreateUpdate = internalMutation({
         columnKey: v.string(),
         columnName: v.string(),
         columnType: v.string(),
+        columnColor: v.optional(v.string()),
         currentValue: v.optional(v.union(v.string(), v.number(), v.boolean(), v.null())),
         proposedValue: v.union(v.string(), v.number(), v.boolean(), v.null()),
         confidence: v.number(),

@@ -25,6 +25,7 @@ interface ColumnUpdate {
   columnKey: string;
   columnName: string;
   columnType: string;
+  columnColor?: string;
   currentValue?: string | number | boolean | null;
   proposedValue: string | number | boolean | null;
   confidence: number;
@@ -92,7 +93,7 @@ export default function CentralizedUpdates() {
   const rejectProposals = useMutation(api.centralizedUpdates.rejectProposals);
   const archiveUpdate = useMutation(api.centralizedUpdates.archiveUpdate);
   const summarizeEmails = useAction(api.centralizedEmails.summarizeCentralizedInbox);
-  const emailConnection = useQuery(api.emails.getEmailConnection);
+  const emailConnection = useQuery(api.nylas.queries.getEmailConnection);
   const initiateEmailAuth = useAction(api.nylas.actions.initiateNylasAuth);
 
   // Query workflow status when we have an active workflow
@@ -307,7 +308,7 @@ export default function CentralizedUpdates() {
     try {
       sessionStorage.setItem('nylas_return_url', '/dashboard');
       
-      const redirectUri = `${window.location.origin}/emailsummary/callback`;
+      const redirectUri = `${window.location.origin}/dashboard/callback`;
       const result = await initiateEmailAuth({
         redirectUri,
         provider: 'google',
@@ -568,7 +569,7 @@ export default function CentralizedUpdates() {
                           {update.trackerProposals[0].columnUpdates.map((col) => (
                             <div
                               key={col.columnKey}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border ${getColorClasses(update.trackerMatches[0]?.trackerColor, 'badge')}`}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border ${getColorClasses(col.columnColor || update.trackerMatches[0]?.trackerColor, 'badge')}`}
                             >
                               <span className="font-medium">{col.columnName}:</span>
                               <span>{String(col.proposedValue || '-')}</span>

@@ -11,6 +11,7 @@ import {
   mapCSVToTrackerData
 } from "./lib/trackerValidation";
 import { validateFolderColor } from "./lib/folderHelpers";
+import { DEFAULT_FOLDER_COLOR } from "./lib/folderConstants";
 import { defaultTemplates } from "./lib/trackerTemplates";
 import { validateImportData } from "./lib/trackerBulkImport";
 import { TRACKER_LIMITS } from "./lib/trackerConstants";
@@ -43,6 +44,8 @@ export const createTracker = mutation({
       width: v.optional(v.number()),
       aiEnabled: v.optional(v.boolean()),
       aiAliases: v.optional(v.array(v.string())),
+      description: v.optional(v.string()),
+      color: v.optional(v.string()),
     })),
     primaryKeyColumn: v.string(),
     templateKey: v.optional(v.string()), // Use a template
@@ -152,6 +155,8 @@ export const updateTracker = mutation({
         width: v.optional(v.number()),
         aiEnabled: v.optional(v.boolean()),
         aiAliases: v.optional(v.array(v.string())),
+        description: v.optional(v.string()),
+        color: v.optional(v.string()),
       }))),
       primaryKeyColumn: v.optional(v.string()),
       isActive: v.optional(v.boolean()),
@@ -671,5 +676,89 @@ export const importCSV = mutation({
       db: ctx.db,
       startIndex: 0,
     });
+  },
+});
+
+// ============================================
+// COLUMN-SPECIFIC MUTATIONS
+// ============================================
+
+export const updateColumnAIStatus = mutation({
+  args: {
+    trackerId: v.id("trackers"),
+    columnId: v.string(),
+    aiEnabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    // Get the tracker and validate access
+    const tracker = await ctx.db.get(args.trackerId);
+    if (!tracker) {
+      throw new Error("Tracker not found");
+    }
+
+    if (tracker.userId !== userId) {
+      throw new Error("Not authorized to update this tracker");
+    }
+
+    // Update the specific column's AI status
+    const updatedColumns = tracker.columns.map(col =>
+      col.id === args.columnId
+        ? { ...col, aiEnabled: args.aiEnabled }
+        : col
+    );
+
+    // Save the updated columns
+    await ctx.db.patch(args.trackerId, {
+      columns: updatedColumns,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+export const updateColumnColor = mutation({
+  args: {
+    trackerId: v.id("trackers"),
+    columnId: v.string(),
+    color: v.string(), // Hex color
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    // Get the tracker and validate access
+    const tracker = await ctx.db.get(args.trackerId);
+    if (!tracker) {
+      throw new Error("Tracker not found");
+    }
+
+    if (tracker.userId !== userId) {
+      throw new Error("Not authorized to update this tracker");
+    }
+
+    // Validate and normalize color format
+    const validatedColor = validateFolderColor(args.color);
+
+    // Check if the color was invalid (defaulted)
+    if (validatedColor === DEFAULT_FOLDER_COLOR && args.color !== DEFAULT_FOLDER_COLOR) {
+      throw new Error("Invalid color format. Please use a valid hex color.");
+    }
+
+    // Update the specific column's color
+    const updatedColumns = tracker.columns.map(col =>
+      col.id === args.columnId
+        ? { ...col, color: validatedColor }
+        : col
+    );
+
+    // Save the updated columns
+    await ctx.db.patch(args.trackerId, {
+      columns: updatedColumns,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });
