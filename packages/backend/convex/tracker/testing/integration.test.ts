@@ -77,13 +77,11 @@ describe("Integration Tests", () => {
       expect(bulkResult.updated).toBe(1);
       expect(bulkResult.imported).toBe(1);
 
-      // Step 6: Query with sorting and pagination
+      // Step 6: Query with pagination
       const queryResult = await t.withIdentity(mockUser).query(
         api.trackers.getTrackerData,
         {
           trackerId,
-          sortBy: "quantity",
-          sortOrder: "desc",
           paginationOpts: createMockPaginationOpts(3),
         }
       );

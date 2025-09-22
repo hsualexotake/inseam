@@ -33,6 +33,7 @@ export const emailAnalysisWorkflow = workflow.define({
       id: v.string(),
       name: v.string(),
       description: v.optional(v.string()),
+      color: v.optional(v.string()),
       primaryKeyColumn: v.string(),
       columns: v.array(v.object({
         id: v.string(),
@@ -147,6 +148,7 @@ export const batchEmailWorkflow = workflow.define({
       id: v.string(),
       name: v.string(),
       description: v.optional(v.string()),
+      color: v.optional(v.string()),
       primaryKeyColumn: v.string(),
       columns: v.array(v.object({
         id: v.string(),

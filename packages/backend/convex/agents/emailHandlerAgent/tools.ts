@@ -14,6 +14,7 @@ export const analyzeEmailForTrackers = createTool({
       id: z.string(),
       name: z.string(),
       description: z.string().optional(),
+      color: z.string().optional(),
       columns: z.array(z.object({
         name: z.string().optional(), // Made optional to handle missing names
         key: z.string(),

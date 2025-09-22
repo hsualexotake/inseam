@@ -126,13 +126,28 @@ export default defineSchema({
     .index("by_user_created", ["userId", "createdAt"])
     .index("by_user_archived", ["userId", "archivedAt"]),
   
+  // Tracker folders for organization
+  trackerFolders: defineTable({
+    name: v.string(),                    // Folder name
+    parentId: v.optional(v.id("trackerFolders")), // Parent folder (null = root)
+    userId: v.string(),                  // Owner
+    color: v.optional(v.string()),      // Hex color for UI
+    order: v.number(),                   // Display order among siblings
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_parent", ["userId", "parentId"]),
+
   // Dynamic tracker system - create custom spreadsheets without code
   trackers: defineTable({
     // Core fields
     name: v.string(),                    // Display name
     slug: v.string(),                    // Unique identifier (URL-safe)
     description: v.optional(v.string()),
-    
+    folderId: v.optional(v.id("trackerFolders")), // Folder organization
+    color: v.optional(v.string()),      // Hex color for visual identification
+
     // Column definitions stored as JSON
     columns: v.array(v.object({
       id: v.string(),                    // Unique column identifier
@@ -149,15 +164,15 @@ export default defineSchema({
       options: v.optional(v.array(v.string())), // For select type
       order: v.number(),                 // Display order
       width: v.optional(v.number()),    // Column width in pixels
-      
+
       // AI configuration (for future use)
       aiEnabled: v.optional(v.boolean()),
       aiAliases: v.optional(v.array(v.string())),
     })),
-    
+
     // Settings
     primaryKeyColumn: v.string(),       // Which column is unique identifier
-    
+
     // Metadata
     userId: v.string(),                 // Owner
     createdAt: v.number(),
@@ -166,7 +181,9 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_user", ["userId"])
-    .index("by_user_active", ["userId", "isActive"]),
+    .index("by_user_active", ["userId", "isActive"])
+    .index("by_user_folder", ["userId", "folderId"])
+    .index("by_user_folder_active", ["userId", "folderId", "isActive"]),
 
   // Tracker data table - stores all data for all trackers
   trackerData: defineTable({
@@ -241,6 +258,7 @@ export default defineSchema({
     trackerMatches: v.array(v.object({
       trackerId: v.id("trackers"),
       trackerName: v.string(),
+      trackerColor: v.optional(v.string()), // Tracker color for UI display
       confidence: v.number(),
     })),
     

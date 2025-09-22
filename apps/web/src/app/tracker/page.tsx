@@ -16,7 +16,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Logo, LogoIcon } from "@/components/dashboard/LogoComponents";
 import { useClerk } from "@clerk/nextjs";
-import TrackerList from "@/components/tracker/TrackerList";
+import TrackerListWithFolders from "@/components/tracker/TrackerListWithFolders";
 
 export default function TrackerPage() {
   const { signOut } = useClerk();
@@ -116,12 +116,8 @@ export default function TrackerPage() {
         </SidebarBody>
       </Sidebar>
       
-      <main className="flex-1 flex flex-col bg-white rounded-tl-2xl border border-gray-200">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6 pt-8">
-            <TrackerList />
-          </div>
-        </div>
+      <main className="flex-1 flex flex-col bg-white rounded-tl-2xl border border-gray-200 overflow-hidden">
+        <TrackerListWithFolders />
       </main>
     </div>
   );

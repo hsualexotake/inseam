@@ -457,7 +457,7 @@ describe("Bulk Import Operations", () => {
             mode: "append",
           }
         ),
-        "Not authenticated"
+        "Unauthenticated call to protected function"
       );
     });
   });

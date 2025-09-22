@@ -31,6 +31,7 @@ export const analyzeEmailWithAgent = internalAction({
       id: v.string(),
       name: v.string(),
       description: v.optional(v.string()),
+      color: v.optional(v.string()),
       primaryKeyColumn: v.string(),
       columns: v.array(v.object({
         id: v.string(),
@@ -151,6 +152,7 @@ export const createTrackerProposals = internalAction({
       id: v.string(),
       name: v.string(),
       description: v.optional(v.string()),
+      color: v.optional(v.string()),
       primaryKeyColumn: v.string(),
       columns: v.array(v.object({
         id: v.string(),
@@ -223,12 +225,16 @@ export const createTrackerProposals = internalAction({
       urgency: "medium",
       category: proposals.length > 0 ? "fashion_ops" : "general",
     };
-    
+
+    // Create Map for O(1) tracker lookups
+    const trackerMap = new Map(trackers.map(t => [t.id, t]));
+
     return {
       emailSummary,
       trackerMatches: trackerMatches.map(match => ({
         trackerId: match.trackerId,
         trackerName: match.trackerName,
+        trackerColor: trackerMap.get(match.trackerId)?.color,
         confidence: match.confidence
       })),
       trackerProposals: proposals,
@@ -271,6 +277,7 @@ export const performLLMExtraction = internalAction({
       id: v.string(),
       name: v.string(),
       primaryKeyColumn: v.string(),
+      color: v.optional(v.string()),
       columns: v.array(v.object({
         id: v.string(),
         name: v.string(),
