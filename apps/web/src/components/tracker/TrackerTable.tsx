@@ -14,7 +14,6 @@ import {
   Download,
   Tag
 } from "lucide-react";
-import AddRowModal from "./AddRowModal";
 import AliasManagementModal from "./AliasManagementModal";
 import { cn } from "@/lib/utils";
 import { ColumnHeader } from "./ColumnPopover";
@@ -33,7 +32,6 @@ interface TrackerTableProps {
 export default function TrackerTable({ tracker, data }: TrackerTableProps) {
   const [editingCell, setEditingCell] = useState<{ rowId: string; columnKey: string } | null>(null);
   const [editValue, setEditValue] = useState<any>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
   const [showAliasModal, setShowAliasModal] = useState<{
     trackerId: Id<"trackers">;
@@ -41,8 +39,15 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
     primaryKeyValue: string;
   } | null>(null);
 
+  // New state for inline row addition
+  const [showEmptyRow, setShowEmptyRow] = useState(false);
+  const [newRowData, setNewRowData] = useState<Record<string, any>>({});
+  const [newRowErrors, setNewRowErrors] = useState<Record<string, string>>({});
+  const [savingNewRow, setSavingNewRow] = useState(false);
+
   const updateRow = useMutation(api.trackers.updateRow);
   const deleteRow = useMutation(api.trackers.deleteRow);
+  const addRow = useMutation(api.trackers.addRow);
 
   // Get alias counts for all rows
   const allAliases = useQuery(api.trackerAliases.getAllTrackerAliases, {
@@ -60,6 +65,30 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
 
   // Sort columns by order
   const sortedColumns = [...tracker.columns].sort((a, b) => a.order - b.order);
+
+  // Helper: Validate row data
+  const validateRowData = (
+    columns: ColumnDefinition[],
+    rowData: Record<string, any>
+  ): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    for (const column of columns) {
+      if (column.required && !rowData[column.key]) {
+        errors[column.key] = `${column.name} is required`;
+      }
+      if (column.type === "number" && rowData[column.key] && isNaN(Number(rowData[column.key]))) {
+        errors[column.key] = `${column.name} must be a number`;
+      }
+    }
+    return errors;
+  };
+
+  // Helper: Reset new row state
+  const resetNewRowState = () => {
+    setShowEmptyRow(false);
+    setNewRowData({});
+    setNewRowErrors({});
+  };
 
   // Start editing a cell
   const startCellEdit = (rowId: string, columnKey: string, currentValue: any) => {
@@ -138,65 +167,170 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
     }
   };
 
-  // Render cell input for editing
-  const renderCellInput = (column: ColumnDefinition) => {
-    const commonProps = {
-      value: editValue || "",
-      onChange: (e: any) => setEditValue(
-        column.type === "boolean" ? e.target.checked : e.target.value
-      ),
-      onKeyDown: handleCellKeyDown,
-      onBlur: saveCellEdit,
-      autoFocus: true,
-      className: "flex-1 px-2 py-0.5 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white",
+  // Unified input renderer for both edit and new row
+  const renderInput = (
+    column: ColumnDefinition,
+    value: any,
+    onChange: (value: any) => void,
+    options?: {
+      onKeyDown?: (e: React.KeyboardEvent) => void;
+      onBlur?: () => void;
+      autoFocus?: boolean;
+      error?: string;
+      placeholder?: string;
+      className?: string;
+    }
+  ) => {
+    const {
+      onKeyDown,
+      onBlur,
+      autoFocus = false,
+      error,
+      placeholder,
+      className = "flex-1 px-2 py-0.5 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+    } = options || {};
+
+    const baseProps = {
+      value: column.type === "boolean" ? (value || false) : (value || ""),
+      onChange: (e: any) => onChange(column.type === "boolean" ? e.target.checked : e.target.value),
+      onKeyDown,
+      onBlur,
+      autoFocus,
+      className: error ? className.replace("border-gray-300", "border-red-500") : className
     };
+
+    let input;
 
     switch (column.type) {
       case "select":
-        return (
-          <select {...commonProps}>
+        input = (
+          <select {...baseProps}>
             <option value="">Select...</option>
             {column.options?.map(opt => (
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
         );
+        break;
 
       case "boolean":
-        return (
+        input = (
           <input
             type="checkbox"
-            checked={editValue || false}
-            onChange={commonProps.onChange}
+            checked={baseProps.value}
+            onChange={baseProps.onChange}
             className="w-4 h-4"
           />
         );
+        break;
 
       case "date":
-        return (
+        input = (
           <input
             type="date"
-            {...commonProps}
-            value={editValue ? new Date(editValue).toISOString().split('T')[0] : ""}
+            {...baseProps}
+            value={value ? new Date(value).toISOString().split('T')[0] : ""}
           />
         );
+        break;
 
       case "number":
-        return (
+        input = (
           <input
             type="number"
-            {...commonProps}
+            {...baseProps}
+            placeholder={placeholder}
           />
         );
+        break;
 
       default:
-        return (
+        input = (
           <input
             type="text"
-            {...commonProps}
+            {...baseProps}
+            placeholder={placeholder || `Enter ${column.name.toLowerCase()}`}
           />
         );
     }
+
+    if (error) {
+      return (
+        <div className="w-full">
+          {input}
+          <p className="text-xs text-red-500 mt-1">{error}</p>
+        </div>
+      );
+    }
+
+    return input;
+  };
+
+  // Render cell input for new row
+  const renderNewRowInput = (column: ColumnDefinition) => {
+    const value = newRowData[column.key];
+    const error = newRowErrors[column.key];
+
+    return renderInput(
+      column,
+      value,
+      (newValue) => {
+        setNewRowData({ ...newRowData, [column.key]: newValue });
+        if (error) {
+          setNewRowErrors({ ...newRowErrors, [column.key]: "" });
+        }
+      },
+      {
+        error,
+        className: `flex-1 px-2 py-0.5 text-sm border ${error ? "border-red-500" : "border-gray-300"} rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`
+      }
+    );
+  };
+
+  // Render cell input for editing
+  const renderCellInput = (column: ColumnDefinition) => {
+    return renderInput(
+      column,
+      editValue,
+      setEditValue,
+      {
+        onKeyDown: handleCellKeyDown,
+        onBlur: saveCellEdit,
+        autoFocus: true,
+        className: "flex-1 px-2 py-0.5 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+      }
+    );
+  };
+
+  // Handle save new row
+  const handleSaveNewRow = async () => {
+    // Validate required fields
+    const errors = validateRowData(tracker.columns, newRowData);
+    if (Object.keys(errors).length > 0) {
+      setNewRowErrors(errors);
+      return;
+    }
+
+    setSavingNewRow(true);
+    try {
+      await addRow({
+        trackerId: tracker._id,
+        data: newRowData,
+      });
+
+      // Reset state on success
+      resetNewRowState();
+    } catch (error) {
+      console.error("Failed to add row:", error);
+      alert("Failed to add row. Please check your data and try again.");
+    } finally {
+      setSavingNewRow(false);
+    }
+  };
+
+  // Handle cancel new row
+  const handleCancelNewRow = () => {
+    resetNewRowState();
   };
 
   // Export to CSV
@@ -237,8 +371,13 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
             Export CSV
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => {
+              setShowEmptyRow(true);
+              setNewRowData({});
+              setNewRowErrors({});
+            }}
+            disabled={showEmptyRow}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
             Add Row
@@ -284,58 +423,39 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                 </td>
               </tr>
             ) : (
-              data.map(row => {
-                const isDeleting = deletingRow === row.rowId;
+              <>
+                {data.map(row => {
+                  const isDeleting = deletingRow === row.rowId;
 
-                return (
-                  <tr key={row._id} className={cn(
-                    "border-b last:border-0 hover:bg-gray-50",
-                    isDeleting && "opacity-50"
-                  )}>
-                    {sortedColumns.map(column => {
-                      const isEditingThisCell = editingCell?.rowId === row.rowId && editingCell?.columnKey === column.key;
+                  return (
+                    <tr key={row._id} className={cn(
+                      "border-b last:border-0 hover:bg-gray-50",
+                      isDeleting && "opacity-50"
+                    )}>
+                      {sortedColumns.map(column => {
+                        const isEditingThisCell = editingCell?.rowId === row.rowId && editingCell?.columnKey === column.key;
 
-                      return (
-                        <td
-                          key={column.id}
-                          className={cn(
-                            "p-4 border-l first:border-l-0",
-                            !isEditingThisCell && "cursor-pointer hover:bg-gray-100 transition-colors"
-                          )}
-                          onClick={() => {
-                            if (!isEditingThisCell && !isDeleting) {
-                              startCellEdit(row.rowId, column.key, row.data[column.key]);
-                            }
-                          }}
-                        >
-                          <div className="inline-flex flex-row items-center gap-2">
-                            {isEditingThisCell ? (
-                              column.key === tracker.primaryKeyColumn ? (
-                                <>
-                                  {renderCellInput(column)}
-                                  {aliasCounts[row.rowId] > 0 && (
-                                    <span
-                                      className="inline-flex items-center gap-0.5 text-gray-500"
-                                      title={`${aliasCounts[row.rowId]} alias${aliasCounts[row.rowId] > 1 ? 'es' : ''}`}
-                                    >
-                                      <Tag className="h-3 w-3" />
-                                      <span className="text-xs font-medium">{aliasCounts[row.rowId]}</span>
-                                    </span>
-                                  )}
-                                </>
-                              ) : (
-                                renderCellInput(column)
-                              )
-                            ) : (
-                              <>
-                                {column.key === tracker.primaryKeyColumn ? (
+                        return (
+                          <td
+                            key={column.id}
+                            className={cn(
+                              "p-4 border-l first:border-l-0",
+                              !isEditingThisCell && "cursor-pointer hover:bg-gray-100 transition-colors"
+                            )}
+                            onClick={() => {
+                              if (!isEditingThisCell && !isDeleting) {
+                                startCellEdit(row.rowId, column.key, row.data[column.key]);
+                              }
+                            }}
+                          >
+                            <div className="inline-flex flex-row items-center gap-2">
+                              {isEditingThisCell ? (
+                                column.key === tracker.primaryKeyColumn ? (
                                   <>
-                                    <span className="text-gray-900">
-                                      {formatCellValue(row.data[column.key], column.type)}
-                                    </span>
+                                    {renderCellInput(column)}
                                     {aliasCounts[row.rowId] > 0 && (
                                       <span
-                                        className="inline-flex items-center gap-0.5 text-gray-500 hover:text-gray-700 transition-colors cursor-help"
+                                        className="inline-flex items-center gap-0.5 text-gray-500"
                                         title={`${aliasCounts[row.rowId]} alias${aliasCounts[row.rowId] > 1 ? 'es' : ''}`}
                                       >
                                         <Tag className="h-3 w-3" />
@@ -343,62 +463,103 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                                       </span>
                                     )}
                                   </>
-                                ) : column.type === "date" && row.data[column.key] ? (
-                                  <code className="rounded-md bg-gray-100 p-1 text-gray-700">
-                                    {formatCellValue(row.data[column.key], column.type)}
-                                  </code>
                                 ) : (
-                                  <span className="text-gray-900">
-                                    {formatCellValue(row.data[column.key], column.type)}
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
+                                  renderCellInput(column)
+                                )
+                              ) : (
+                                <>
+                                  {column.key === tracker.primaryKeyColumn ? (
+                                    <>
+                                      <span className="text-gray-900">
+                                        {formatCellValue(row.data[column.key], column.type)}
+                                      </span>
+                                      {aliasCounts[row.rowId] > 0 && (
+                                        <span
+                                          className="inline-flex items-center gap-0.5 text-gray-500 hover:text-gray-700 transition-colors cursor-help"
+                                          title={`${aliasCounts[row.rowId]} alias${aliasCounts[row.rowId] > 1 ? 'es' : ''}`}
+                                        >
+                                          <Tag className="h-3 w-3" />
+                                          <span className="text-xs font-medium">{aliasCounts[row.rowId]}</span>
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : column.type === "date" && row.data[column.key] ? (
+                                    <code className="rounded-md bg-gray-100 p-1 text-gray-700">
+                                      {formatCellValue(row.data[column.key], column.type)}
+                                    </code>
+                                  ) : (
+                                    <span className="text-gray-900">
+                                      {formatCellValue(row.data[column.key], column.type)}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td className="p-4 border-l">
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => setShowAliasModal({
+                              trackerId: tracker._id,
+                              rowId: row.rowId,
+                              primaryKeyValue: String(row.data[tracker.primaryKeyColumn] || row.rowId)
+                            })}
+                            className="p-1 text-purple-600 hover:text-purple-700"
+                            title="Manage Aliases"
+                          >
+                            <Tag className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(row.rowId)}
+                            className="p-1 text-red-600 hover:text-red-700"
+                            title="Delete"
+                            disabled={isDeleting}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {/* Empty row for adding new data */}
+                {showEmptyRow && (
+                  <tr className="border-b">
+                    {sortedColumns.map(column => (
+                      <td key={column.id} className="p-4 border-l first:border-l-0">
+                        {renderNewRowInput(column)}
+                      </td>
+                    ))}
                     <td className="p-4 border-l">
                       <div className="flex gap-1">
                         <button
-                          onClick={() => setShowAliasModal({
-                            trackerId: tracker._id,
-                            rowId: row.rowId,
-                            primaryKeyValue: String(row.data[tracker.primaryKeyColumn] || row.rowId)
-                          })}
-                          className="p-1 text-purple-600 hover:text-purple-700"
-                          title="Manage Aliases"
+                          onClick={handleSaveNewRow}
+                          disabled={savingNewRow}
+                          className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Tag className="h-4 w-4" />
+                          {savingNewRow ? "Saving..." : "Save"}
                         </button>
                         <button
-                          onClick={() => handleDelete(row.rowId)}
-                          className="p-1 text-red-600 hover:text-red-700"
-                          title="Delete"
-                          disabled={isDeleting}
+                          onClick={handleCancelNewRow}
+                          disabled={savingNewRow}
+                          className="px-2 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          Cancel
                         </button>
                       </div>
                     </td>
                   </tr>
-                );
-              })
+                )}
+              </>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Add Row Modal */}
-      {showAddModal && (
-        <AddRowModal
-          tracker={tracker}
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            setShowAddModal(false);
-          }}
-        />
-      )}
+      {/* Add Row Modal - Removed in favor of inline editing */}
 
       {/* Alias Management Modal */}
       {showAliasModal && (
