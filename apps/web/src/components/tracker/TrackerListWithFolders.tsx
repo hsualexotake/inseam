@@ -8,27 +8,14 @@ import Link from "next/link";
 import {
   Plus,
   Eye,
-  Edit,
-  Trash2,
   Database,
-  FileSpreadsheet,
-  Package,
-  Truck,
-  Grid3x3,
   Folder,
   ChevronRight,
-  MoreVertical,
-  FolderInput,
 } from "lucide-react";
 import FolderSidebar from "./FolderSidebar";
 import CreateFolderModal from "./CreateFolderModal";
-
-const iconMap: Record<string, any> = {
-  fashion: Package,
-  logistics: Truck,
-  simple: Grid3x3,
-  default: FileSpreadsheet,
-};
+import TrackerActionsDropdown from "@/components/ui/tracker-actions-dropdown";
+import { useRouter } from "next/navigation";
 
 export default function TrackerListWithFolders() {
   return (
@@ -50,7 +37,7 @@ function TrackerListContent() {
   const [deletingId, setDeletingId] = useState<Id<"trackers"> | null>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [editingFolder, setEditingFolder] = useState<any>(null);
-  const [movingTracker, setMovingTracker] = useState<Id<"trackers"> | null>(null);
+  const router = useRouter();
 
   // Determine the query parameters based on selection
   const queryParams = selectedFolderId === null
@@ -90,17 +77,12 @@ function TrackerListContent() {
   const handleMoveTracker = async (trackerId: Id<"trackers">, newFolderId: Id<"trackerFolders"> | null) => {
     try {
       await moveTrackerToFolder({ trackerId, folderId: newFolderId });
-      setMovingTracker(null);
     } catch (error) {
       console.error("Failed to move tracker:", error);
       alert("Failed to move tracker. Please try again.");
     }
   };
 
-  const getTrackerIcon = (tracker: any) => {
-    const Icon = iconMap[tracker.templateKey as string] || iconMap.default;
-    return <Icon className="w-4 h-4" />;
-  };
 
   const getBreadcrumbText = () => {
     if (selectedFolderId === 'unfiled') return 'Unfiled Trackers';
@@ -190,46 +172,38 @@ function TrackerListContent() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {trackers.map((tracker) => {
                 const isDeleting = deletingId === tracker._id;
-                const isMoving = movingTracker === tracker._id;
 
                 return (
                   <div
                     key={tracker._id}
                     className={`bg-white rounded-lg border ${
                       isDeleting ? 'opacity-50 border-red-200' : 'border-gray-200'
-                    } hover:shadow-md transition-all relative`}
+                    } hover:shadow-md transition-all`}
                   >
                     <div className="p-6">
                       <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${
-                            tracker.color ? '' : 'bg-gray-100'
-                          }`} style={tracker.color ? { backgroundColor: `${tracker.color}20` } : {}}>
-                            <div style={{ color: tracker.color || '#6B7280' }}>
-                              {getTrackerIcon(tracker)}
-                            </div>
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">
-                              {tracker.name}
-                            </h3>
-                            {tracker.description && (
-                              <p className="text-sm text-gray-600 mt-1">
-                                {tracker.description}
-                              </p>
-                            )}
-                          </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 mb-1">
+                            {tracker.name}
+                          </h3>
+                          {tracker.description && (
+                            <p className="text-sm text-gray-600">
+                              {tracker.description}
+                            </p>
+                          )}
                         </div>
 
-                        {/* Dropdown menu */}
-                        <div className="relative">
-                          <button
-                            className="p-1 hover:bg-gray-100 rounded"
-                            disabled={isDeleting}
-                          >
-                            <MoreVertical className="w-4 h-4 text-gray-600" />
-                          </button>
-                        </div>
+                        {/* Actions Dropdown */}
+                        <TrackerActionsDropdown
+                          trackerId={tracker._id}
+                          trackerName={tracker.name}
+                          currentFolderId={tracker.folderId}
+                          folders={allFolders}
+                          onEdit={() => router.push(`/tracker/edit/${tracker._id}`)}
+                          onDelete={() => handleDelete(tracker._id, tracker.name)}
+                          onMoveToFolder={(folderId) => handleMoveTracker(tracker._id, folderId)}
+                          isDeleting={isDeleting}
+                        />
                       </div>
 
                       <div className="text-sm text-gray-600 mb-4">
@@ -247,77 +221,13 @@ function TrackerListContent() {
                       <div className="flex gap-2">
                         <Link
                           href={`/tracker/view/${tracker.slug}`}
-                          className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                          className="flex-1 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
                         >
                           <Eye className="w-4 h-4" />
                           View
                         </Link>
-                        <Link
-                          href={`/tracker/edit/${tracker._id}`}
-                          className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Edit className="w-4 h-4" />
-                          Edit
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(tracker._id, tracker.name)}
-                          disabled={isDeleting}
-                          className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-400 transition-colors flex items-center justify-center gap-2"
-                        >
-                          {isDeleting ? (
-                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => setMovingTracker(tracker._id)}
-                          className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <FolderInput className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
-
-                    {/* Move Tracker Dropdown */}
-                    {isMoving && (
-                      <div className="absolute inset-0 bg-white rounded-lg border-2 border-blue-500 p-6 z-10">
-                        <h4 className="font-semibold mb-3">Move to folder:</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          <button
-                            onClick={() => handleMoveTracker(tracker._id, null)}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md transition-colors"
-                          >
-                            No folder (root)
-                          </button>
-                          {allFolders?.map((folder) => (
-                            <button
-                              key={folder._id}
-                              onClick={() => handleMoveTracker(tracker._id, folder._id)}
-                              disabled={folder._id === tracker.folderId}
-                              className={`w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-2 ${
-                                folder._id === tracker.folderId ? 'opacity-50 cursor-not-allowed' : ''
-                              }`}
-                            >
-                              <div
-                                className="w-3 h-3 rounded-sm"
-                                style={{ backgroundColor: folder.color || '#6B7280' }}
-                              />
-                              {folder.name}
-                              {folder._id === tracker.folderId && (
-                                <span className="text-xs text-gray-500 ml-auto">(current)</span>
-                              )}
-                            </button>
-                          ))}
-                          <button
-                            onClick={() => setMovingTracker(null)}
-                            className="mt-4 w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}

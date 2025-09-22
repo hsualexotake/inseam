@@ -10,13 +10,9 @@ import {
 } from "@packages/backend/convex/types/tracker";
 import {
   Plus,
-  Edit2,
   Trash2,
-  Save,
-  X,
   Download,
-  Tag,
-  Sparkles
+  Tag
 } from "lucide-react";
 import AddRowModal from "./AddRowModal";
 import AliasManagementModal from "./AliasManagementModal";
@@ -35,8 +31,8 @@ interface TrackerTableProps {
 }
 
 export default function TrackerTable({ tracker, data }: TrackerTableProps) {
-  const [editingRow, setEditingRow] = useState<string | null>(null);
-  const [editData, setEditData] = useState<Record<string, any>>({});
+  const [editingCell, setEditingCell] = useState<{ rowId: string; columnKey: string } | null>(null);
+  const [editValue, setEditValue] = useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
   const [showAliasModal, setShowAliasModal] = useState<{
@@ -65,31 +61,44 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
   // Sort columns by order
   const sortedColumns = [...tracker.columns].sort((a, b) => a.order - b.order);
 
-  // Start editing
-  const startEdit = (row: TrackerDataRow) => {
-    setEditingRow(row.rowId);
-    setEditData(row.data);
+  // Start editing a cell
+  const startCellEdit = (rowId: string, columnKey: string, currentValue: any) => {
+    setEditingCell({ rowId, columnKey });
+    setEditValue(currentValue);
   };
 
-  // Cancel editing
-  const cancelEdit = () => {
-    setEditingRow(null);
-    setEditData({});
-  };
+  // Save cell edit
+  const saveCellEdit = async () => {
+    if (!editingCell) return;
 
-  // Save edits
-  const saveEdit = async (rowId: string) => {
     try {
       await updateRow({
         trackerId: tracker._id,
-        rowId,
-        updates: editData,
+        rowId: editingCell.rowId,
+        updates: { [editingCell.columnKey]: editValue },
       });
-      setEditingRow(null);
-      setEditData({});
+      setEditingCell(null);
+      setEditValue(null);
     } catch (error) {
-      console.error("Failed to update row:", error);
-      alert("Failed to update row. Please check your data and try again.");
+      console.error("Failed to update cell:", error);
+      alert("Failed to update cell. Please check your data and try again.");
+    }
+  };
+
+  // Cancel cell edit
+  const cancelCellEdit = () => {
+    setEditingCell(null);
+    setEditValue(null);
+  };
+
+  // Handle keyboard events in cells
+  const handleCellKeyDown = async (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      await saveCellEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelCellEdit();
     }
   };
 
@@ -130,14 +139,16 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
   };
 
   // Render cell input for editing
-  const renderCellInput = (column: ColumnDefinition, value: any) => {
+  const renderCellInput = (column: ColumnDefinition) => {
     const commonProps = {
-      value: value || "",
-      onChange: (e: any) => setEditData({
-        ...editData,
-        [column.key]: column.type === "boolean" ? e.target.checked : e.target.value
-      }),
-      className: "w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500",
+      value: editValue || "",
+      onChange: (e: any) => setEditValue(
+        column.type === "boolean" ? e.target.checked : e.target.value
+      ),
+      onKeyDown: handleCellKeyDown,
+      onBlur: saveCellEdit,
+      autoFocus: true,
+      className: "flex-1 px-2 py-0.5 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white",
     };
 
     switch (column.type) {
@@ -155,7 +166,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
         return (
           <input
             type="checkbox"
-            checked={value || false}
+            checked={editValue || false}
             onChange={commonProps.onChange}
             className="w-4 h-4"
           />
@@ -166,7 +177,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
           <input
             type="date"
             {...commonProps}
-            value={value ? new Date(value).toISOString().split('T')[0] : ""}
+            value={editValue ? new Date(editValue).toISOString().split('T')[0] : ""}
           />
         );
 
@@ -240,7 +251,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
         "my-6 overflow-auto rounded-xl border bg-white",
         "max-w-full"
       )}>
-        <table className="w-full whitespace-nowrap text-sm text-gray-600">
+        <table className="w-full table-fixed whitespace-nowrap text-sm text-gray-600">
           <thead className="border-b bg-gray-50">
             <tr>
               {sortedColumns.map(column => (
@@ -274,7 +285,6 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
               </tr>
             ) : (
               data.map(row => {
-                const isEditing = editingRow === row.rowId;
                 const isDeleting = deletingRow === row.rowId;
 
                 return (
@@ -282,90 +292,94 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                     "border-b last:border-0 hover:bg-gray-50",
                     isDeleting && "opacity-50"
                   )}>
-                    {sortedColumns.map(column => (
-                      <td key={column.id} className="p-4 border-l first:border-l-0">
-                        {isEditing ? (
-                          renderCellInput(column, editData[column.key])
-                        ) : (
+                    {sortedColumns.map(column => {
+                      const isEditingThisCell = editingCell?.rowId === row.rowId && editingCell?.columnKey === column.key;
+
+                      return (
+                        <td
+                          key={column.id}
+                          className={cn(
+                            "p-4 border-l first:border-l-0",
+                            !isEditingThisCell && "cursor-pointer hover:bg-gray-100 transition-colors"
+                          )}
+                          onClick={() => {
+                            if (!isEditingThisCell && !isDeleting) {
+                              startCellEdit(row.rowId, column.key, row.data[column.key]);
+                            }
+                          }}
+                        >
                           <div className="inline-flex flex-row items-center gap-2">
-                            {column.key === tracker.primaryKeyColumn ? (
+                            {isEditingThisCell ? (
+                              column.key === tracker.primaryKeyColumn ? (
+                                <>
+                                  {renderCellInput(column)}
+                                  {aliasCounts[row.rowId] > 0 && (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-gray-500"
+                                      title={`${aliasCounts[row.rowId]} alias${aliasCounts[row.rowId] > 1 ? 'es' : ''}`}
+                                    >
+                                      <Tag className="h-3 w-3" />
+                                      <span className="text-xs font-medium">{aliasCounts[row.rowId]}</span>
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                renderCellInput(column)
+                              )
+                            ) : (
                               <>
-                                <code className="rounded-md bg-primary/10 p-1 text-primary">
-                                  {formatCellValue(row.data[column.key], column.type)}
-                                </code>
-                                {aliasCounts[row.rowId] > 0 && (
-                                  <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">
-                                    {aliasCounts[row.rowId]} alias{aliasCounts[row.rowId] > 1 ? 'es' : ''}
+                                {column.key === tracker.primaryKeyColumn ? (
+                                  <>
+                                    <span className="text-gray-900">
+                                      {formatCellValue(row.data[column.key], column.type)}
+                                    </span>
+                                    {aliasCounts[row.rowId] > 0 && (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 text-gray-500 hover:text-gray-700 transition-colors cursor-help"
+                                        title={`${aliasCounts[row.rowId]} alias${aliasCounts[row.rowId] > 1 ? 'es' : ''}`}
+                                      >
+                                        <Tag className="h-3 w-3" />
+                                        <span className="text-xs font-medium">{aliasCounts[row.rowId]}</span>
+                                      </span>
+                                    )}
+                                  </>
+                                ) : column.type === "date" && row.data[column.key] ? (
+                                  <code className="rounded-md bg-gray-100 p-1 text-gray-700">
+                                    {formatCellValue(row.data[column.key], column.type)}
+                                  </code>
+                                ) : (
+                                  <span className="text-gray-900">
+                                    {formatCellValue(row.data[column.key], column.type)}
                                   </span>
                                 )}
                               </>
-                            ) : column.type === "date" && row.data[column.key] ? (
-                              <code className="rounded-md bg-gray-100 p-1 text-gray-700">
-                                {formatCellValue(row.data[column.key], column.type)}
-                              </code>
-                            ) : (
-                              <span className="text-gray-900">
-                                {formatCellValue(row.data[column.key], column.type)}
-                              </span>
-                            )}
-                            {column.aiEnabled && row.data[column.key] && (
-                              <span title="AI-enhanced">
-                                <Sparkles className="h-3 w-3 text-purple-500" />
-                              </span>
                             )}
                           </div>
-                        )}
-                      </td>
-                    ))}
+                        </td>
+                      );
+                    })}
                     <td className="p-4 border-l">
-                      {isEditing ? (
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => saveEdit(row.rowId)}
-                            className="p-1 text-green-600 hover:text-green-700"
-                            title="Save"
-                          >
-                            <Save className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            className="p-1 text-gray-600 hover:text-gray-700"
-                            title="Cancel"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setShowAliasModal({
-                              trackerId: tracker._id,
-                              rowId: row.rowId,
-                              primaryKeyValue: String(row.data[tracker.primaryKeyColumn] || row.rowId)
-                            })}
-                            className="p-1 text-purple-600 hover:text-purple-700"
-                            title="Manage Aliases"
-                          >
-                            <Tag className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => startEdit(row)}
-                            className="p-1 text-blue-600 hover:text-blue-700"
-                            title="Edit"
-                            disabled={isDeleting}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(row.rowId)}
-                            className="p-1 text-red-600 hover:text-red-700"
-                            title="Delete"
-                            disabled={isDeleting}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setShowAliasModal({
+                            trackerId: tracker._id,
+                            rowId: row.rowId,
+                            primaryKeyValue: String(row.data[tracker.primaryKeyColumn] || row.rowId)
+                          })}
+                          className="p-1 text-purple-600 hover:text-purple-700"
+                          title="Manage Aliases"
+                        >
+                          <Tag className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(row.rowId)}
+                          className="p-1 text-red-600 hover:text-red-700"
+                          title="Delete"
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
