@@ -50,7 +50,6 @@ import type * as chat_streaming from "../chat/streaming.js";
 import type * as constants from "../constants.js";
 import type * as crons from "../crons.js";
 import type * as emails_internal from "../emails/internal.js";
-import type * as emails from "../emails.js";
 import type * as helpers_auth from "../helpers/auth.js";
 import type * as helpers_retry from "../helpers/retry.js";
 import type * as lib_folderConstants from "../lib/folderConstants.js";
@@ -67,6 +66,7 @@ import type * as nylas_actions from "../nylas/actions.js";
 import type * as nylas_config from "../nylas/config.js";
 import type * as nylas_internal from "../nylas/internal.js";
 import type * as nylas_nodeActions from "../nylas/nodeActions.js";
+import type * as nylas_queries from "../nylas/queries.js";
 import type * as nylas_rateLimit from "../nylas/rateLimit.js";
 import type * as nylas_types from "../nylas/types.js";
 import type * as nylas_utils from "../nylas/utils.js";
@@ -80,7 +80,6 @@ import type * as trackers from "../trackers.js";
 import type * as types_index from "../types/index.js";
 import type * as types_tracker from "../types/tracker.js";
 import type * as types from "../types.js";
-import type * as updates from "../updates.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -140,7 +139,6 @@ declare const fullApi: ApiFromModules<{
   constants: typeof constants;
   crons: typeof crons;
   "emails/internal": typeof emails_internal;
-  emails: typeof emails;
   "helpers/auth": typeof helpers_auth;
   "helpers/retry": typeof helpers_retry;
   "lib/folderConstants": typeof lib_folderConstants;
@@ -157,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   "nylas/config": typeof nylas_config;
   "nylas/internal": typeof nylas_internal;
   "nylas/nodeActions": typeof nylas_nodeActions;
+  "nylas/queries": typeof nylas_queries;
   "nylas/rateLimit": typeof nylas_rateLimit;
   "nylas/types": typeof nylas_types;
   "nylas/utils": typeof nylas_utils;
@@ -170,7 +169,6 @@ declare const fullApi: ApiFromModules<{
   "types/index": typeof types_index;
   "types/tracker": typeof types_tracker;
   types: typeof types;
-  updates: typeof updates;
   utils: typeof utils;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

@@ -89,6 +89,8 @@ export const summarizeCentralizedInbox = action({
         options: col.options,
         aiEnabled: col.aiEnabled || false,
         aiAliases: col.aiAliases || [],
+        color: col.color,
+        description: col.description,
       })),
     }));
     
