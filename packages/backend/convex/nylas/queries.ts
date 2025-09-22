@@ -1,5 +1,5 @@
 import { query } from "../_generated/server";
-import { requireAuth } from "../helpers/auth";
+import { optionalAuth } from "../helpers/auth";
 
 /**
  * Public query to check if user has connected their email
@@ -8,7 +8,10 @@ import { requireAuth } from "../helpers/auth";
 export const getEmailConnection = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+    const userId = await optionalAuth(ctx);
+    if (!userId) {
+      return null;
+    }
 
     const grant = await ctx.db
       .query("nylasGrants")

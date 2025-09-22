@@ -96,7 +96,7 @@ export default function ColumnPopover({
           {/* AI Toggle */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-purple-600" />
+              <Sparkles className="h-4 w-4 text-yellow-500" />
               <span className="text-sm font-medium">AI Enabled</span>
             </div>
             <button
@@ -104,7 +104,7 @@ export default function ColumnPopover({
               disabled={isUpdating}
               className={cn(
                 "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                aiEnabled ? "bg-purple-600" : "bg-gray-200",
+                aiEnabled ? "bg-yellow-600" : "bg-gray-200",
                 isUpdating && "opacity-50 cursor-not-allowed"
               )}
               aria-label="Toggle AI"
@@ -188,7 +188,7 @@ export function ColumnHeader({
           <span>{column.name}</span>
         )}
         {column.aiEnabled && (
-          <Sparkles className="h-3 w-3 text-purple-500" />
+          <Sparkles className="h-3 w-3 text-yellow-500" />
         )}
         <InfoIcon className="h-3 w-3 opacity-60" />
         {required && <span className="text-red-500">*</span>}
