@@ -32,8 +32,8 @@ interface TrackerActionsDropdownProps {
 }
 
 export default function TrackerActionsDropdown({
-  trackerId,
-  trackerName,
+  trackerId: _trackerId,
+  trackerName: _trackerName,
   currentFolderId,
   folders,
   onEdit,
