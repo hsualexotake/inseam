@@ -15,7 +15,7 @@ interface CreateFolderModalProps {
     _id: Id<"trackerFolders">;
     name: string;
     color?: string;
-  };
+  } | null;
 }
 
 export default function CreateFolderModal({
