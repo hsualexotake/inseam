@@ -116,9 +116,14 @@ export default function TrackerPage() {
         </SidebarBody>
       </Sidebar>
       
-      <main className="flex-1 flex flex-col bg-white rounded-tl-2xl border border-gray-200 overflow-hidden">
+      <motion.main
+        className="flex-1 flex flex-col bg-white rounded-tl-2xl border border-gray-200 overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+      >
         <TrackerListWithFolders />
-      </main>
+      </motion.main>
     </div>
   );
 }

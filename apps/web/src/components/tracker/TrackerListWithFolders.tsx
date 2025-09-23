@@ -10,6 +10,7 @@ import {
   Database,
   ChevronRight,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import FolderSidebar from "./FolderSidebar";
 import CreateFolderModal from "./CreateFolderModal";
 import TrackerCard from "./TrackerCard";
@@ -116,7 +117,12 @@ function TrackerListContent() {
       <div className="flex-1 p-6">
         <div className="max-w-6xl mx-auto">
           {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
+          <motion.div
+            className="flex items-center gap-2 text-sm text-gray-600 mb-6"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
             <button
               onClick={() => setSelectedFolderId(null)}
               className="hover:text-gray-900"
@@ -131,10 +137,15 @@ function TrackerListContent() {
                 </span>
               </>
             )}
-          </div>
+          </motion.div>
 
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <motion.div
+            className="flex justify-between items-center mb-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
+          >
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 {getBreadcrumbText()}
@@ -150,7 +161,7 @@ function TrackerListContent() {
               <Plus className="w-5 h-5" />
               Create Tracker
             </Link>
-          </div>
+          </motion.div>
 
           {/* Tracker List */}
           {!trackers ? (
@@ -158,7 +169,12 @@ function TrackerListContent() {
               Loading trackers...
             </div>
           ) : trackers.length === 0 ? (
-            <div className="bg-gray-50 rounded-lg p-12 text-center">
+            <motion.div
+              className="bg-gray-50 rounded-lg p-12 text-center"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
+            >
               <Database className="w-16 h-16 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 {selectedFolderId === 'unfiled'
@@ -179,26 +195,55 @@ function TrackerListContent() {
                 <Plus className="w-5 h-5" />
                 Create Your First Tracker
               </Link>
-            </div>
+            </motion.div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <motion.div
+              className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: {
+                  opacity: 1,
+                  transition: {
+                    staggerChildren: 0.1,
+                    delayChildren: 0.2,
+                  }
+                }
+              }}
+            >
               {trackers.map((tracker) => {
                 const folder = allFolders?.find(f => f._id === tracker.folderId);
                 const isDeleting = deletingId === tracker._id;
 
                 return (
-                  <TrackerCard
+                  <motion.div
                     key={tracker._id}
-                    tracker={tracker}
-                    folder={folder}
-                    folders={allFolders}
-                    isDeleting={isDeleting}
-                    onDelete={handleDelete}
-                    onMoveToFolder={handleMoveTracker}
-                  />
+                    variants={{
+                      hidden: { opacity: 0, y: 20, scale: 0.95 },
+                      visible: {
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                        transition: {
+                          duration: 0.3,
+                          ease: "easeOut"
+                        }
+                      }
+                    }}
+                  >
+                    <TrackerCard
+                      tracker={tracker}
+                      folder={folder}
+                      folders={allFolders}
+                      isDeleting={isDeleting}
+                      onDelete={handleDelete}
+                      onMoveToFolder={handleMoveTracker}
+                    />
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

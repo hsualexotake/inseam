@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useParams } from "next/navigation";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
-import { 
+import {
   Home,
   FolderOpen,
   CheckSquare,
@@ -12,10 +12,12 @@ import {
   HelpCircle,
   LogOut,
   Package,
-  ArrowLeft
+  ArrowLeft,
+  Download
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { exportTrackerToCSV } from "@/lib/csv-utils";
 import { Logo, LogoIcon } from "@/components/dashboard/LogoComponents";
 import { useClerk } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
@@ -35,6 +37,12 @@ export default function TrackerViewPage() {
     tracker ? { trackerId: tracker._id, paginationOpts: { numItems: 1000, cursor: null } } : "skip"
   );
 
+
+  // Export to CSV function
+  const handleExportCSV = () => {
+    if (!tracker || !trackerData) return;
+    exportTrackerToCSV(tracker.slug, tracker.columns, trackerData.page);
+  };
 
   const links = [
     {
@@ -134,7 +142,12 @@ export default function TrackerViewPage() {
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 pt-8">
             {/* Breadcrumb */}
-            <div className="mb-6">
+            <motion.div
+              className="mb-6"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
               <Link
                 href="/tracker"
                 className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -142,7 +155,7 @@ export default function TrackerViewPage() {
                 <ArrowLeft className="h-4 w-4" />
                 Back to Trackers
               </Link>
-            </div>
+            </motion.div>
             
             {/* Content */}
             {!tracker && !trackerData && (
@@ -158,27 +171,52 @@ export default function TrackerViewPage() {
             )}
             
             {tracker && trackerData && (
-              <div className="space-y-6">
+              <motion.div
+                className="space-y-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              >
                 {/* Header */}
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{tracker.name}</h1>
-                  {tracker.description && (
-                    <p className="text-gray-600 mt-1">{tracker.description}</p>
-                  )}
-                </div>
-                
+                <motion.div
+                  className="flex justify-between items-start"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
+                >
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900">{tracker.name}</h1>
+                    {tracker.description && (
+                      <p className="text-gray-600 mt-1">{tracker.description}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleExportCSV}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                  </button>
+                </motion.div>
+
                 {/* Table */}
-                <TrackerTable
-                  tracker={{
-                    _id: tracker._id,
-                    name: tracker.name,
-                    slug: tracker.slug,
-                    columns: tracker.columns,
-                    primaryKeyColumn: tracker.primaryKeyColumn,
-                  }}
-                  data={trackerData.page}
-                />
-              </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
+                >
+                  <TrackerTable
+                    tracker={{
+                      _id: tracker._id,
+                      name: tracker.name,
+                      slug: tracker.slug,
+                      columns: tracker.columns,
+                      primaryKeyColumn: tracker.primaryKeyColumn,
+                    }}
+                    data={trackerData.page}
+                  />
+                </motion.div>
+              </motion.div>
             )}
             
             {tracker === null && (

@@ -178,7 +178,7 @@ export function ColumnHeader({
         {column.color ? (
           <span
             className={cn(
-              "inline-block px-1.5 py-0.5 rounded text-xs font-medium",
+              "inline-block px-1.5 py-0.5 rounded text-sm font-medium",
               getColorClasses(column.color, 'badge')
             )}
           >
