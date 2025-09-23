@@ -7,15 +7,12 @@ import { Id } from "@packages/backend/convex/_generated/dataModel";
 import Link from "next/link";
 import {
   Plus,
-  Eye,
   Database,
-  Folder,
   ChevronRight,
 } from "lucide-react";
 import FolderSidebar from "./FolderSidebar";
 import CreateFolderModal from "./CreateFolderModal";
-import TrackerActionsDropdown from "@/components/ui/tracker-actions-dropdown";
-import { useRouter } from "next/navigation";
+import TrackerCard from "./TrackerCard";
 
 export default function TrackerListWithFolders() {
   return (
@@ -36,8 +33,11 @@ function TrackerListContent() {
   const [selectedFolderId, setSelectedFolderId] = useState<Id<"trackerFolders"> | null | 'unfiled'>(null);
   const [deletingId, setDeletingId] = useState<Id<"trackers"> | null>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
-  const [editingFolder, setEditingFolder] = useState<any>(null);
-  const router = useRouter();
+  const [editingFolder, setEditingFolder] = useState<{
+    _id: Id<"trackerFolders">;
+    name: string;
+    color?: string;
+  } | null>(null);
 
   // Determine the query parameters based on selection
   const queryParams = selectedFolderId === null
@@ -83,6 +83,18 @@ function TrackerListContent() {
     }
   };
 
+  const handleEditFolder = (folderId: Id<"trackerFolders">) => {
+    const folder = allFolders?.find(f => f._id === folderId);
+    if (folder) {
+      setEditingFolder({
+        _id: folder._id,
+        name: folder.name,
+        color: folder.color || undefined
+      });
+      setShowCreateFolder(true);
+    }
+  };
+
 
   const getBreadcrumbText = () => {
     if (selectedFolderId === 'unfiled') return 'Unfiled Trackers';
@@ -97,7 +109,7 @@ function TrackerListContent() {
         selectedFolderId={selectedFolderId}
         onFolderSelect={setSelectedFolderId}
         onCreateFolder={() => setShowCreateFolder(true)}
-        onEditFolder={setEditingFolder}
+        onEditFolder={handleEditFolder}
       />
 
       {/* Main Content */}
@@ -171,64 +183,19 @@ function TrackerListContent() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {trackers.map((tracker) => {
+                const folder = allFolders?.find(f => f._id === tracker.folderId);
                 const isDeleting = deletingId === tracker._id;
 
                 return (
-                  <div
+                  <TrackerCard
                     key={tracker._id}
-                    className={`bg-white rounded-lg border ${
-                      isDeleting ? 'opacity-50 border-red-200' : 'border-gray-200'
-                    } hover:shadow-md transition-all`}
-                  >
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">
-                            {tracker.name}
-                          </h3>
-                          {tracker.description && (
-                            <p className="text-sm text-gray-600">
-                              {tracker.description}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Actions Dropdown */}
-                        <TrackerActionsDropdown
-                          trackerId={tracker._id}
-                          trackerName={tracker.name}
-                          currentFolderId={tracker.folderId}
-                          folders={allFolders}
-                          onEdit={() => router.push(`/tracker/edit/${tracker._id}`)}
-                          onDelete={() => handleDelete(tracker._id, tracker.name)}
-                          onMoveToFolder={(folderId) => handleMoveTracker(tracker._id, folderId)}
-                          isDeleting={isDeleting}
-                        />
-                      </div>
-
-                      <div className="text-sm text-gray-600 mb-4">
-                        {tracker.folderId && allFolders && (
-                          <span className="inline-flex items-center gap-1">
-                            <Folder className="w-3 h-3" />
-                            {allFolders.find(f => f._id === tracker.folderId)?.name || 'Unknown'}
-                          </span>
-                        )}
-                        {!tracker.folderId && (
-                          <span className="text-gray-500">No folder</span>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/tracker/view/${tracker.slug}`}
-                          className="flex-1 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Eye className="w-4 h-4" />
-                          View
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
+                    tracker={tracker}
+                    folder={folder}
+                    folders={allFolders}
+                    isDeleting={isDeleting}
+                    onDelete={handleDelete}
+                    onMoveToFolder={handleMoveTracker}
+                  />
                 );
               })}
             </div>

@@ -12,7 +12,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Edit, Trash2, FolderInput, Folder } from "lucide-react";
+import { MoreVertical, Trash2, FolderInput, Folder } from "lucide-react";
 import { Id } from "@packages/backend/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +24,7 @@ interface TrackerActionsDropdownProps {
     _id: Id<"trackerFolders">;
     name: string;
     color?: string | null;
-  }> | undefined;
-  onEdit: () => void;
+  }> | null | undefined;
   onDelete: () => void;
   onMoveToFolder: (folderId: Id<"trackerFolders"> | null) => void;
   isDeleting?: boolean;
@@ -36,7 +35,6 @@ export default function TrackerActionsDropdown({
   trackerName: _trackerName,
   currentFolderId,
   folders,
-  onEdit,
   onDelete,
   onMoveToFolder,
   isDeleting = false,
@@ -64,16 +62,6 @@ export default function TrackerActionsDropdown({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-56 animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95">
-        {/* Quick Edits */}
-        <DropdownMenuGroup>
-          <DropdownMenuItem onClick={onEdit} className="group cursor-pointer transition-all duration-150 hover:bg-gray-100">
-            <Edit className="mr-2 h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
-            Edit
-            <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-
-        <DropdownMenuSeparator />
 
         {/* Organize */}
         <DropdownMenuGroup>
