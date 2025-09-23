@@ -11,12 +11,18 @@ import {
 import {
   Plus,
   Trash2,
-  Download,
-  Tag
+  Tag,
+  MoreVertical
 } from "lucide-react";
 import AliasManagementModal from "./AliasManagementModal";
 import { cn } from "@/lib/utils";
 import { ColumnHeader } from "./ColumnPopover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface TrackerTableProps {
   tracker: {
@@ -29,9 +35,57 @@ interface TrackerTableProps {
   data: TrackerDataRow[];
 }
 
+// Row Actions Dropdown Component
+const RowActionsDropdown = ({
+  row,
+  tracker,
+  isDeleting,
+  onDelete,
+  onAliasManage
+}: {
+  row: TrackerDataRow;
+  tracker: TrackerTableProps['tracker'];
+  isDeleting: boolean;
+  onDelete: (rowId: string) => void;
+  onAliasManage: (data: { trackerId: Id<"trackers">; rowId: string; primaryKeyValue: string }) => void;
+}) => (
+  <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-10">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="p-1.5 rounded-md hover:bg-gray-100 bg-white shadow-sm border transition-colors"
+          disabled={isDeleting}
+        >
+          <MoreVertical className="h-4 w-4 text-gray-500" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem
+          onClick={() => onAliasManage({
+            trackerId: tracker._id,
+            rowId: row.rowId,
+            primaryKeyValue: String(row.data[tracker.primaryKeyColumn] || row.rowId)
+          })}
+          className="cursor-pointer"
+        >
+          <Tag className="h-4 w-4 mr-2" />
+          Manage Aliases
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => onDelete(row.rowId)}
+          className="cursor-pointer text-red-600 focus:text-red-600"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </div>
+);
+
 export default function TrackerTable({ tracker, data }: TrackerTableProps) {
   const [editingCell, setEditingCell] = useState<{ rowId: string; columnKey: string } | null>(null);
-  const [editValue, setEditValue] = useState<any>(null);
+  const [editValue, setEditValue] = useState<string | number | boolean | null>(null);
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
   const [showAliasModal, setShowAliasModal] = useState<{
     trackerId: Id<"trackers">;
@@ -41,7 +95,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
 
   // New state for inline row addition
   const [showEmptyRow, setShowEmptyRow] = useState(false);
-  const [newRowData, setNewRowData] = useState<Record<string, any>>({});
+  const [newRowData, setNewRowData] = useState<Record<string, string | number | boolean>>({});
   const [newRowErrors, setNewRowErrors] = useState<Record<string, string>>({});
   const [savingNewRow, setSavingNewRow] = useState(false);
 
@@ -91,7 +145,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
   };
 
   // Start editing a cell
-  const startCellEdit = (rowId: string, columnKey: string, currentValue: any) => {
+  const startCellEdit = (rowId: string, columnKey: string, currentValue: string | number | boolean | null) => {
     setEditingCell({ rowId, columnKey });
     setEditValue(currentValue);
   };
@@ -333,70 +387,31 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
     resetNewRowState();
   };
 
-  // Export to CSV
-  const exportToCSV = () => {
-    const headers = sortedColumns.map(col => col.name).join(",");
-    const rows = data.map(row =>
-      sortedColumns.map(col => {
-        const value = row.data[col.key];
-        // Escape commas and quotes in values
-        const escaped = String(value || "").replace(/"/g, '""');
-        return escaped.includes(",") ? `"${escaped}"` : escaped;
-      }).join(",")
-    );
-
-    const csv = [headers, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${tracker.slug}-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // Start a new row for inline editing
+  const startNewRow = () => {
+    setShowEmptyRow(true);
+    setNewRowData({});
+    setNewRowErrors({});
   };
 
   return (
-    <div className="space-y-4">
-      {/* Actions */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-gray-600">
-          {data.length} {data.length === 1 ? "row" : "rows"}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={exportToCSV}
-            className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </button>
-          <button
-            onClick={() => {
-              setShowEmptyRow(true);
-              setNewRowData({});
-              setNewRowErrors({});
-            }}
-            disabled={showEmptyRow}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="h-4 w-4" />
-            Add Row
-          </button>
-        </div>
-      </div>
-
+    <div>
       {/* Table */}
       <div className={cn(
-        "my-6 overflow-auto rounded-xl border bg-white",
+        "overflow-auto rounded-xl border bg-white",
         "max-w-full"
       )}>
         <table className="w-full table-fixed whitespace-nowrap text-sm text-gray-600">
           <thead className="border-b bg-gray-50">
             <tr>
+              {/* Row number header */}
+              <th className="w-12 p-2 text-center font-semibold text-gray-500 uppercase tracking-wider text-xs border-r">
+
+              </th>
               {sortedColumns.map(column => (
                 <th
                   key={column.id}
-                  className="p-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs border-l first:border-l-0"
+                  className="p-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-sm border-l first:border-l-0"
                   style={{ minWidth: column.width || 120 }}
                 >
                   <ColumnHeader
@@ -407,9 +422,6 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                   />
                 </th>
               ))}
-              <th className="p-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs border-l">
-                Actions
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -424,23 +436,29 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
               </tr>
             ) : (
               <>
-                {data.map(row => {
+                {data.map((row, index) => {
                   const isDeleting = deletingRow === row.rowId;
 
                   return (
                     <tr key={row._id} className={cn(
-                      "border-b last:border-0 hover:bg-gray-50",
+                      "border-b last:border-0 hover:bg-gray-50 group relative",
                       isDeleting && "opacity-50"
                     )}>
-                      {sortedColumns.map(column => {
+                      {/* Row number */}
+                      <td className="w-12 p-2 text-center text-gray-500 border-r text-xs font-medium">
+                        {index + 1}
+                      </td>
+                      {sortedColumns.map((column, columnIndex) => {
                         const isEditingThisCell = editingCell?.rowId === row.rowId && editingCell?.columnKey === column.key;
+                        const isLastColumn = columnIndex === sortedColumns.length - 1;
 
                         return (
                           <td
                             key={column.id}
                             className={cn(
                               "p-4 border-l first:border-l-0",
-                              !isEditingThisCell && "cursor-pointer hover:bg-gray-100 transition-colors"
+                              !isEditingThisCell && "cursor-pointer hover:bg-gray-100 transition-colors",
+                              isLastColumn && "relative pr-12"
                             )}
                             onClick={() => {
                               if (!isEditingThisCell && !isDeleting) {
@@ -495,32 +513,19 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                                 </>
                               )}
                             </div>
+                            {/* Actions dropdown - positioned absolutely within last column */}
+                            {isLastColumn && (
+                              <RowActionsDropdown
+                                row={row}
+                                tracker={tracker}
+                                isDeleting={isDeleting}
+                                onDelete={handleDelete}
+                                onAliasManage={setShowAliasModal}
+                              />
+                            )}
                           </td>
                         );
                       })}
-                      <td className="p-4 border-l">
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => setShowAliasModal({
-                              trackerId: tracker._id,
-                              rowId: row.rowId,
-                              primaryKeyValue: String(row.data[tracker.primaryKeyColumn] || row.rowId)
-                            })}
-                            className="p-1 text-purple-600 hover:text-purple-700"
-                            title="Manage Aliases"
-                          >
-                            <Tag className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(row.rowId)}
-                            className="p-1 text-red-600 hover:text-red-700"
-                            title="Delete"
-                            disabled={isDeleting}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
@@ -528,29 +533,45 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                 {/* Empty row for adding new data */}
                 {showEmptyRow && (
                   <tr className="border-b">
-                    {sortedColumns.map(column => (
-                      <td key={column.id} className="p-4 border-l first:border-l-0">
-                        {renderNewRowInput(column)}
-                      </td>
-                    ))}
-                    <td className="p-4 border-l">
-                      <div className="flex gap-1">
-                        <button
-                          onClick={handleSaveNewRow}
-                          disabled={savingNewRow}
-                          className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {savingNewRow ? "Saving..." : "Save"}
-                        </button>
-                        <button
-                          onClick={handleCancelNewRow}
-                          disabled={savingNewRow}
-                          className="px-2 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                    {/* Row number for new row */}
+                    <td className="w-12 p-2 text-center text-gray-500 border-r text-xs font-medium">
+                      {data.length + 1}
                     </td>
+                    {sortedColumns.map((column, columnIndex) => {
+                      const isLastColumn = columnIndex === sortedColumns.length - 1;
+
+                      return (
+                        <td key={column.id} className={cn(
+                          "p-4 border-l first:border-l-0",
+                          isLastColumn && "relative pr-24"
+                        )}>
+                          {renderNewRowInput(column)}
+                          {/* Actions for new row - positioned absolutely within last column */}
+                          {isLastColumn && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10">
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={handleSaveNewRow}
+                                  disabled={savingNewRow}
+                                  className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Save"
+                                >
+                                  {savingNewRow ? "..." : "✓"}
+                                </button>
+                                <button
+                                  onClick={handleCancelNewRow}
+                                  disabled={savingNewRow}
+                                  className="px-2 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+                                  title="Cancel"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 )}
               </>
@@ -558,6 +579,19 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
           </tbody>
         </table>
       </div>
+
+      {/* Subtle add row button below table */}
+      {!showEmptyRow && data.length > 0 && (
+        <div className="flex justify-center mt-3">
+          <button
+            onClick={startNewRow}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors bg-white"
+          >
+            <Plus className="h-4 w-4" />
+            Add Row
+          </button>
+        </div>
+      )}
 
       {/* Add Row Modal - Removed in favor of inline editing */}
 
