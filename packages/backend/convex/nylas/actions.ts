@@ -5,7 +5,7 @@
  * These are the main entry points for email operations
  */
 
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { 
@@ -89,6 +89,77 @@ export const fetchRecentEmails = action({
         hasAttachments: (email.attachments?.length || 0) > 0,
       })) || [];
       
+      return {
+        emails,
+        totalCount: emails.length,
+        grant: {
+          email: grant.email,
+          provider: grant.provider,
+        },
+      };
+    });
+  },
+});
+
+/**
+ * INTERNAL: Fetch recent emails for a specific user (no auth check)
+ * Used by background jobs and internal processes
+ */
+export const fetchRecentEmailsInternal = internalAction({
+  args: {
+    userId: v.string(),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, { userId, limit = 5, offset = 0 }): Promise<EmailFetchResult> => {
+    // No requireAuth needed - userId passed directly from internal caller
+
+    // Validate parameters
+    const validatedLimit = Math.min(Math.max(1, limit), 100);
+    const validatedOffset = Math.max(0, offset);
+
+    // Apply rate limiting
+    return await withRateLimit(ctx, userId, "nylas.fetchEmails", async (): Promise<EmailFetchResult> => {
+      // Get user's grant
+      const grant = await ctx.runQuery(internal.nylas.internal.getGrant, { userId });
+
+      if (!grant) {
+        throw new Error(ErrorMessages.NO_EMAIL_CONNECTED);
+      }
+
+      // Fetch emails using Nylas API with API key authentication
+      // Nylas returns messages in reverse chronological order (newest first) by default
+      const endpoint = `/grants/${grant.grantId}/messages?` +
+        `limit=${validatedLimit}&` +
+        `offset=${validatedOffset}`;
+
+      const data = await ctx.runAction(
+        internal.nylas.nodeActions.nylasApiCall,
+        {
+          endpoint,
+        }
+      );
+
+      // Extract and format email data with sanitization
+      const emails: FormattedEmail[] = data.data?.map((email: NylasEmail) => ({
+        id: email.id,
+        threadId: email.thread_id,
+        subject: sanitizeSubject(email.subject || ""),
+        from: email.from?.[0] ? {
+          email: sanitizeEmailAddress(email.from[0].email || ""),
+          name: email.from[0].name?.replace(/[<>"/\\]/g, '').substring(0, 100) || "Unknown Sender"
+        } : { email: "unknown@example.com", name: "Unknown Sender" },
+        to: email.to?.map(contact => ({
+          email: sanitizeEmailAddress(contact.email || ""),
+          name: contact.name?.replace(/[<>"/\\]/g, '').substring(0, 100) || ""
+        })) || [],
+        date: email.date,
+        snippet: cleanEmailBody(email.snippet || ""),
+        body: cleanEmailBody(email.body || email.snippet || ""),
+        unread: email.unread || false,
+        hasAttachments: (email.attachments?.length || 0) > 0,
+      })) || [];
+
       return {
         emails,
         totalCount: emails.length,

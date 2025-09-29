@@ -60,6 +60,8 @@ interface CentralizedUpdate {
   approved?: boolean;
   rejected?: boolean;
   createdAt: number;
+  viewedAt?: number;
+  viewedBy?: string;
 }
 
 export default function CentralizedUpdates() {
@@ -92,7 +94,8 @@ export default function CentralizedUpdates() {
   const updateProposalWithEdits = useMutation(api.centralizedUpdates.updateProposalWithEdits);
   const rejectProposals = useMutation(api.centralizedUpdates.rejectProposals);
   const archiveUpdate = useMutation(api.centralizedUpdates.archiveUpdate);
-  const summarizeEmails = useAction(api.centralizedEmails.summarizeCentralizedInbox);
+  const markAllAsViewed = useMutation(api.centralizedUpdates.markAllAsViewed);
+  const summarizeEmails = useAction(api.centralizedEmails.summarizeCentralizedInbox); // Action with duplicate prevention
   const emailConnection = useQuery(api.nylas.queries.getEmailConnection);
   const initiateEmailAuth = useAction(api.nylas.actions.initiateNylasAuth);
 
@@ -180,13 +183,54 @@ export default function CentralizedUpdates() {
 
       setProcessingSteps(steps);
     }
-  }, [workflowStatus, activeWorkflowId]);
-  
-  
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowStatus, activeWorkflowId]); // processingSteps intentionally omitted to prevent infinite loop
+
+  // Mark all updates as viewed on component mount (new session)
+  useEffect(() => {
+    // Small delay to avoid race conditions with initial data loading
+    const timer = setTimeout(() => {
+      markAllAsViewed()
+        .catch(error => {
+          // Silently handle errors - user might not have any updates yet
+          console.log('No updates to mark as viewed:', error);
+        });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [markAllAsViewed]); // Only run once on mount, but include dependency for linting
+
+  // Mark as viewed when tab gains focus (returning to the page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Tab became visible - mark updates as viewed
+        markAllAsViewed()
+          .catch(error => {
+            console.log('No updates to mark on focus:', error);
+          });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [markAllAsViewed])
+
   // Handle refresh (fetch new emails)
   const handleRefresh = useCallback(async () => {
     setLoading(true);
     setShowProcessingSteps(true);
+
+    // Mark all current updates as viewed before fetching new ones
+    try {
+      await markAllAsViewed();
+    } catch (error) {
+      // Silently handle - might not have any updates
+      console.log('No updates to mark before refresh:', error);
+    }
 
     // Initialize steps
     const initialSteps: ProcessingStep[] = [
@@ -299,7 +343,7 @@ export default function CentralizedUpdates() {
     } finally {
       setLoading(false);
     }
-  }, [summarizeEmails]);
+  }, [summarizeEmails, markAllAsViewed]);
   
   // Handle connect email
   const handleConnectEmail = async () => {
@@ -524,7 +568,11 @@ export default function CentralizedUpdates() {
                     damping: 30,
                     delay: index * 0.05 // Stagger effect for multiple items
                   }}
-                  className={`${isProcessing ? "opacity-50" : ""} relative overflow-hidden border-l-2 border-transparent hover:border-gray-200 transition-colors`}
+                  className={`${isProcessing ? "opacity-50" : ""} relative overflow-hidden border-l-4 ${
+                    !update.viewedAt
+                      ? "border-blue-500 bg-gradient-to-r from-blue-50/30 to-transparent"
+                      : "border-transparent hover:border-gray-200"
+                  } transition-colors`}
                 >
                   {/* New item highlight pulse - shows for recent items */}
                   {Date.now() - update.createdAt < 5000 && (
@@ -540,6 +588,13 @@ export default function CentralizedUpdates() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
+                        {/* Blue dot indicator for unviewed updates */}
+                        {!update.viewedAt && (
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                          </span>
+                        )}
                         <Mail className="h-4 w-4 text-gray-400" />
                         <span className="text-sm text-gray-600">
                           {update.fromName || "Unknown sender"}
@@ -547,6 +602,12 @@ export default function CentralizedUpdates() {
                         <span className="text-xs text-gray-400">
                           {formatTimeAgo(update.createdAt)}
                         </span>
+                        {/* NEW badge for unviewed updates */}
+                        {!update.viewedAt && (
+                          <span className="px-1.5 py-0.5 text-xs font-semibold text-blue-600 bg-blue-100 rounded">
+                            NEW
+                          </span>
+                        )}
                       </div>
                       <h3 className="font-medium text-gray-900">{update.title}</h3>
                       <p className="text-sm text-gray-600 mt-1">{update.summary}</p>

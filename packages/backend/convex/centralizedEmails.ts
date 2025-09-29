@@ -1,4 +1,4 @@
-import { action, query } from "./_generated/server";
+import { action, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { workflow } from "./agents/workflows/manager";
 import { api } from "./_generated/api";
@@ -11,8 +11,9 @@ import type { WorkflowId } from "@convex-dev/workflow";
 /**
  * Centralized email processing with tracker awareness
  * Uses workflow-based approach for reliable multi-step execution
+ * Creates centralized updates with tracker integration
+ * Email deduplication prevents processing the same emails twice
  */
-
 export const summarizeCentralizedInbox = action({
   args: v.object({
     emailCount: v.optional(v.number()),
@@ -30,16 +31,19 @@ export const summarizeCentralizedInbox = action({
     };
   }> => {
     const userId = await requireAuth(ctx);
-    
+
+    // Email deduplication below prevents processing the same emails twice
+    // Users can still trigger re-processing to check for new emails
+
     // Validate email count
     const validatedCount = Math.min(Math.max(1, emailCount), MAX_EMAIL_SUMMARY_COUNT);
-    
+
     // Fetch emails using existing Nylas integration
     const emailData: { emails: FormattedEmail[] } = await ctx.runAction(api.nylas.actions.fetchRecentEmails, {
       limit: validatedCount,
       offset: 0,
     });
-    
+
     if (!emailData.emails || emailData.emails.length === 0) {
       return {
         success: false,
@@ -47,19 +51,19 @@ export const summarizeCentralizedInbox = action({
         updatesCreated: 0,
       };
     }
-    
-    // Check which emails have already been processed
+
+    // Get processed checks and trackers in a single query (Convex best practice)
     const emailIds = emailData.emails.map((e: FormattedEmail) => e.id);
-    const processedChecks = await ctx.runQuery(
-      internal.emails.internal.checkProcessedEmailsBatch,
+    const { processedChecks, trackers } = await ctx.runQuery(
+      internal.centralizedEmails.fetchEmailWorkflowData,
       { userId, emailIds }
     );
-    
+
     // Filter to only new emails
     const newEmails: FormattedEmail[] = emailData.emails.filter(
       (_: FormattedEmail, idx: number) => !processedChecks[idx]
     );
-    
+
     if (newEmails.length === 0) {
       return {
         success: true,
@@ -67,12 +71,7 @@ export const summarizeCentralizedInbox = action({
         updatesCreated: 0,
       };
     }
-    
-    // Get user's active trackers with full schema
-    const trackers = await ctx.runQuery(api.trackers.listTrackers, { 
-      activeOnly: true 
-    });
-    
+
     // Prepare tracker context for the workflow
     const trackerContext = trackers.map((t: any) => ({
       id: t._id,
@@ -93,7 +92,7 @@ export const summarizeCentralizedInbox = action({
         description: col.description,
       })),
     }));
-    
+
     // Format emails for workflow
     const emailsForWorkflow = newEmails.map((email: FormattedEmail) => ({
       id: email.id,
@@ -106,11 +105,11 @@ export const summarizeCentralizedInbox = action({
       body: email.body || undefined,
       snippet: email.snippet || undefined,
     }));
-    
-    // Start the batch email workflow with onComplete handler
+
+    // Start the OPTIMIZED batch email workflow with onComplete handler
     const workflowId: WorkflowId = await workflow.start(
       ctx,
-      internal.agents.workflows.definitions.emailWorkflow.batchEmailWorkflow,
+      internal.agents.workflows.definitions.emailWorkflow.batchEmailWorkflowOptimized,
       {
         emails: emailsForWorkflow,
         trackers: trackerContext,
@@ -124,10 +123,10 @@ export const summarizeCentralizedInbox = action({
         },
       }
     );
-    
+
     // Get workflow status to return immediately
     const status = await workflow.status(ctx, workflowId);
-    
+
     // Return workflow started status
     // The onComplete handler will process results and mark emails when done
     return {
@@ -209,3 +208,66 @@ export const getWorkflowStatus = query({
     }
   },
 });
+
+/**
+ * WORKFLOW PREP: Fetch all data needed for email processing workflow
+ * Combines multiple queries for performance:
+ * 1. Check which emails are already processed (deduplication)
+ * 2. Fetch all active trackers with their schemas
+ *
+ * Used to prepare data before starting the email workflow.
+ * Following Convex best practice: minimize ctx.runQuery calls in actions
+ *
+ * NOTE: Duplicates deduplication logic from emails/internal.ts/checkIfEmailsAlreadyProcessed
+ * because internalQuery can't call another internalQuery via ctx.runQuery (Convex limitation)
+ */
+export const fetchEmailWorkflowData = internalQuery({
+  args: {
+    userId: v.string(),
+    emailIds: v.array(v.string()),
+  },
+  handler: async (ctx, { userId, emailIds }) => {
+    // Step 1: Check which emails have already been processed (deduplication)
+    // Using same logic as checkIfEmailsAlreadyProcessed but inline since we can't call runQuery from internalQuery
+    const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
+
+    const processed = await ctx.db
+      .query("processedEmailIds")
+      .withIndex("by_user_email", q => q.eq("userId", userId))
+      .filter(q => q.gte(q.field("createdAt"), ninetyDaysAgo))
+      .take(10000);
+
+    const processedSet = new Set(processed.map(p => p.emailId));
+    const processedChecks = emailIds.map(id => processedSet.has(id));
+
+    // Step 2: Get user's active trackers with full schema for workflow context
+    const trackers = await ctx.db
+      .query("trackers")
+      .withIndex("by_user_active", q =>
+        q.eq("userId", userId).eq("isActive", true)
+      )
+      .collect();
+
+    // Transform trackers to include _id and all needed fields
+    const trackersWithIds = trackers.map(t => ({
+      _id: t._id,
+      name: t.name,
+      slug: t.slug,
+      description: t.description,
+      color: t.color,
+      primaryKeyColumn: t.primaryKeyColumn,
+      columns: t.columns,
+      isActive: t.isActive,
+      folderId: t.folderId,
+      userId: t.userId,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    }));
+
+    return {
+      processedChecks,
+      trackers: trackersWithIds
+    };
+  }
+});
+
