@@ -6,8 +6,15 @@ import { internal } from "../_generated/api";
  * Internal helper functions for email deduplication
  */
 
-// Batch check multiple emails in a single query (performance optimization)
-export const checkProcessedEmailsBatch = internalQuery({
+/**
+ * DEDUPLICATION ONLY: Check if emails have been processed before
+ * Returns boolean array indicating which emails are already in our system
+ * Used to prevent duplicate processing when marking emails as processed
+ *
+ * NOTE: This logic is duplicated in centralizedEmails.ts/fetchEmailWorkflowData
+ * because internalQuery can't call runQuery on another internalQuery (Convex limitation)
+ */
+export const checkIfEmailsAlreadyProcessed = internalQuery({
   args: {
     userId: v.string(),
     emailIds: v.array(v.string()),
@@ -44,7 +51,7 @@ export const markEmailsProcessed = internalMutation({
     
     // Use efficient batch check instead of N+1 queries
     const processedChecks = await ctx.runQuery(
-      internal.emails.internal.checkProcessedEmailsBatch,
+      internal.emails.internal.checkIfEmailsAlreadyProcessed,
       { userId, emailIds }
     );
     

@@ -491,6 +491,43 @@ export const archiveUpdate = mutation({
   },
 });
 
+/**
+ * Mark all updates as viewed for the current user
+ */
+export const markAllAsViewed = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+
+    // Get all unviewed updates for this user (with safety limit)
+    const updates = await ctx.db
+      .query("centralizedUpdates")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .filter(q =>
+        q.and(
+          q.eq(q.field("viewedAt"), undefined),
+          q.eq(q.field("archivedAt"), undefined)
+        )
+      )
+      .take(500); // Safety limit - generous but prevents runaway growth
+
+    // Batch update
+    await Promise.all(
+      updates.map(update =>
+        ctx.db.patch(update._id, {
+          viewedAt: Date.now(),
+          viewedBy: userId,
+        })
+      )
+    );
+
+    return {
+      success: true,
+      count: updates.length
+    };
+  },
+});
+
 // Get available trackers for the current user
 export const getUserTrackers = query({
   args: {},

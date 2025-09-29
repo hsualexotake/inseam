@@ -3,7 +3,7 @@ import { openai } from "@ai-sdk/openai";
 // Model configuration - centralized for easy updates
 // Using lazy initialization to avoid import-time errors
 export const getChatModel = () => {
-  return process.env.OPENAI_API_KEY 
+  return process.env.OPENAI_API_KEY
     ? openai.chat("gpt-4o-mini")
     : undefined;
 };

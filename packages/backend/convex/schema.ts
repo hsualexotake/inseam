@@ -207,7 +207,11 @@ export default defineSchema({
     approvedBy: v.optional(v.string()),
     rejected: v.optional(v.boolean()),
     rejectedAt: v.optional(v.number()),
-    
+
+    // Viewing status
+    viewedAt: v.optional(v.number()), // When first viewed by user
+    viewedBy: v.optional(v.string()), // User who viewed (for future multi-user support)
+
     createdAt: v.number(),
     archivedAt: v.optional(v.number()),
   }).index("by_user", ["userId"])
@@ -225,4 +229,5 @@ export default defineSchema({
   })
     .index("by_tracker_alias", ["trackerId", "alias"])  // Primary lookup
     .index("by_tracker_row", ["trackerId", "rowId"]),   // Get aliases for a row
+
 });
