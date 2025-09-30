@@ -335,9 +335,6 @@ export const createTrackerProposals = internalAction({
     // Create email summary
     const emailSummary = {
       title: email.subject.substring(0, 50),
-      summary: proposals.length > 0 
-        ? `Email about ${proposals.map(p => p.trackerName).join(', ')}`
-        : `Email from ${email.from.name || email.from.email}`,
       type: proposals.length > 0 ? "update" : "general",
       urgency: "medium",
       category: proposals.length > 0 ? "fashion_ops" : "general",
@@ -380,7 +377,7 @@ export const storeCentralizedUpdate = internalAction({
     emailId: v.string(),
     emailSummary: v.object({
       title: v.string(),
-      summary: v.string(),
+      summary: v.optional(v.string()),
       type: v.string(),
       urgency: v.string(),
       category: v.string(),

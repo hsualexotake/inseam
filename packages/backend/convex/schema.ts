@@ -172,7 +172,7 @@ export default defineSchema({
     type: v.string(), // "shipment", "delivery", "delay", "approval", "update", "general"
     category: v.string(), // "fashion_ops", "logistics", "general"
     title: v.string(),
-    summary: v.string(),
+    summary: v.optional(v.string()),
     urgency: v.optional(v.string()), // "high", "medium", "low"
     
     // Source metadata
