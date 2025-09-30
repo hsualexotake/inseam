@@ -256,7 +256,7 @@ export const internalCreateUpdate = internalMutation({
     type: v.string(),
     category: v.string(),
     title: v.string(),
-    summary: v.string(),
+    summary: v.optional(v.string()),
     urgency: v.optional(v.string()),
     fromName: v.optional(v.string()),
     fromId: v.optional(v.string()),
@@ -291,145 +291,6 @@ export const internalCreateUpdate = internalMutation({
     });
     
     return { success: true, updateId };
-  },
-});
-
-// Approve tracker proposals and apply them
-export const approveTrackerProposals = mutation({
-  args: {
-    updateId: v.id("centralizedUpdates"),
-    approvedProposals: v.array(v.object({
-      trackerId: v.id("trackers"),
-      rowId: v.string(),
-      approvedColumns: v.array(v.string()), // Column keys to approve
-    })),
-  },
-  handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
-
-    // Validate update access
-    const update = await validateUpdateAccess(ctx, args.updateId, userId);
-
-    // Process each approved proposal
-    const results = [];
-    for (const approval of args.approvedProposals) {
-      // Find the proposal in the update
-      const proposal = update.trackerProposals?.find(
-        p => p.trackerId === approval.trackerId && p.rowId === approval.rowId
-      );
-
-      if (!proposal) {
-        results.push({
-          trackerId: approval.trackerId,
-          rowId: approval.rowId,
-          success: false,
-          error: "Proposal not found",
-        });
-        continue;
-      }
-
-      // Validate tracker access
-      const { tracker, error: trackerError } = await validateTrackerAccess(
-        ctx,
-        approval.trackerId,
-        userId
-      );
-
-      if (!tracker) {
-        results.push({
-          trackerId: approval.trackerId,
-          rowId: approval.rowId,
-          success: false,
-          error: trackerError || "Tracker not found",
-        });
-        continue;
-      }
-
-      // Build the data object with approved columns only
-      const dataToUpdate: Record<string, any> = {};
-      let primaryKeyChanged = false;
-      let newPrimaryKeyValue: any = null;
-
-      for (const columnUpdate of proposal.columnUpdates) {
-        if (approval.approvedColumns.includes(columnUpdate.columnKey)) {
-          dataToUpdate[columnUpdate.columnKey] = columnUpdate.proposedValue;
-
-          // Check if this is the primary key column
-          if (columnUpdate.columnKey === tracker.primaryKeyColumn) {
-            primaryKeyChanged = true;
-            newPrimaryKeyValue = columnUpdate.proposedValue;
-          }
-        }
-      }
-
-      if (Object.keys(dataToUpdate).length === 0) {
-        results.push({
-          trackerId: approval.trackerId,
-          rowId: approval.rowId,
-          success: false,
-          error: "No columns approved",
-        });
-        continue;
-      }
-
-      // If primary key is being changed, check for duplicates
-      if (primaryKeyChanged && newPrimaryKeyValue !== null) {
-        const { isDuplicate, error: dupError } = await checkPrimaryKeyDuplicate(
-          ctx,
-          approval.trackerId,
-          tracker.primaryKeyColumn,
-          newPrimaryKeyValue,
-          approval.rowId
-        );
-
-        if (isDuplicate) {
-          results.push({
-            trackerId: approval.trackerId,
-            rowId: approval.rowId,
-            success: false,
-            error: dupError || "Duplicate primary key",
-          });
-          continue;
-        }
-      }
-
-      try {
-        // Upsert the tracker row
-        await upsertTrackerRow(
-          ctx,
-          approval.trackerId,
-          approval.rowId,
-          dataToUpdate,
-          userId,
-          proposal.isNewRow
-        );
-
-        results.push({
-          trackerId: approval.trackerId,
-          rowId: approval.rowId,
-          success: true,
-        });
-      } catch (error) {
-        results.push({
-          trackerId: approval.trackerId,
-          rowId: approval.rowId,
-          success: false,
-          error: String(error),
-        });
-      }
-    }
-
-    // Mark update as processed
-    await ctx.db.patch(args.updateId, {
-      processed: true,
-      processedAt: Date.now(),
-      approved: true,
-      approvedAt: Date.now(),
-      approvedBy: userId,
-      archivedAt: Date.now(),
-    });
-
-    return { success: true, results };
   },
 });
 
@@ -492,7 +353,39 @@ export const archiveUpdate = mutation({
 });
 
 /**
- * Mark all updates as viewed for the current user
+ * Mark a single update as viewed
+ */
+export const markAsViewed = mutation({
+  args: {
+    updateId: v.id("centralizedUpdates"),
+  },
+  handler: async (ctx, { updateId }) => {
+    const userId = await requireAuth(ctx);
+
+    const update = await ctx.db.get(updateId);
+    if (!update) {
+      throw new Error("Update not found");
+    }
+
+    if (update.userId !== userId) {
+      throw new Error("Not authorized to mark this update");
+    }
+
+    // Only mark if not already viewed
+    if (!update.viewedAt) {
+      await ctx.db.patch(updateId, {
+        viewedAt: Date.now(),
+        viewedBy: userId,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Mark all active (non-archived) updates as viewed for the current user
+ * This should only be called from explicit user action (e.g., "Mark All as Read" button)
  */
 export const markAllAsViewed = mutation({
   args: {},

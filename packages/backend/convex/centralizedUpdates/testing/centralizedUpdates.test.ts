@@ -268,13 +268,17 @@ describe("CentralizedUpdates - Real World Scenarios", () => {
 
       // User approves only delivery_date, rejects price
       await t.withIdentity(mockUser1).mutation(
-        api.centralizedUpdates.approveTrackerProposals,
+        api.centralizedUpdates.updateProposalWithEdits,
         {
           updateId,
-          approvedProposals: [{
+          editedProposals: [{
             trackerId: tracker,
             rowId: "12",
-            approvedColumns: ["delivery_date"] // Only approve delivery_date
+            editedColumns: [{
+              columnKey: "delivery_date",
+              newValue: "2024-09-15", // Use the proposed value
+              targetColumnKey: "delivery_date"
+            }]
           }]
         }
       );
@@ -332,13 +336,17 @@ describe("CentralizedUpdates - Real World Scenarios", () => {
 
       // Attempt to approve should fail
       const result = await t.withIdentity(mockUser1).mutation(
-        api.centralizedUpdates.approveTrackerProposals,
+        api.centralizedUpdates.updateProposalWithEdits,
         {
           updateId,
-          approvedProposals: [{
+          editedProposals: [{
             trackerId: tracker,
             rowId: "12",
-            approvedColumns: ["sku"]
+            editedColumns: [{
+              columnKey: "sku",
+              newValue: "45", // This already exists!
+              targetColumnKey: "sku"
+            }]
           }]
         }
       );
@@ -435,10 +443,10 @@ describe("CentralizedUpdates - Real World Scenarios", () => {
       // User2 tries to approve it - should fail
       await expectAuthorizationError(
         () => t.withIdentity(mockUser2).mutation(
-          api.centralizedUpdates.approveTrackerProposals,
+          api.centralizedUpdates.updateProposalWithEdits,
           {
             updateId,
-            approvedProposals: []
+            editedProposals: []
           }
         ),
         "Not authorized"
@@ -674,24 +682,32 @@ describe("CentralizedUpdates - Real World Scenarios", () => {
       // Approve both concurrently
       const results = await runConcurrently([
         () => t.withIdentity(mockUser1).mutation(
-          api.centralizedUpdates.approveTrackerProposals,
+          api.centralizedUpdates.updateProposalWithEdits,
           {
             updateId: update1Id,
-            approvedProposals: [{
+            editedProposals: [{
               trackerId: tracker,
               rowId: "12",
-              approvedColumns: ["price"]
+              editedColumns: [{
+                columnKey: "price",
+                newValue: 50.00,
+                targetColumnKey: "price"
+              }]
             }]
           }
         ),
         () => t.withIdentity(mockUser1).mutation(
-          api.centralizedUpdates.approveTrackerProposals,
+          api.centralizedUpdates.updateProposalWithEdits,
           {
             updateId: update2Id,
-            approvedProposals: [{
+            editedProposals: [{
               trackerId: tracker,
               rowId: "12",
-              approvedColumns: ["price"]
+              editedColumns: [{
+                columnKey: "price",
+                newValue: 60.00,
+                targetColumnKey: "price"
+              }]
             }]
           }
         )

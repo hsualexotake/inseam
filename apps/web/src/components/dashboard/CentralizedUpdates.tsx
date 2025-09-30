@@ -5,11 +5,12 @@ import { useQuery, useMutation, useAction, usePaginatedQuery } from "convex/reac
 import { api } from "@packages/backend/convex/_generated/api";
 import {
   Mail, ChevronDown, ChevronUp,
-  RefreshCw, X, Database, CheckCircle, XCircle,
-  Package, AlertCircle
+  RefreshCw, CheckCircle, XCircle,
+  Package, AlertCircle, CheckCheck, Check, X
 } from "lucide-react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import EditableProposalCard from "./centralized-updates/EditableProposalCard";
+import ManualProposalCreator from "./centralized-updates/ManualProposalCreator";
 import ProcessingSteps, { type ProcessingStep } from "./ProcessingSteps";
 import { AnimatePresence, motion } from "framer-motion";
 import { getColorClasses } from "../ui/ColorPicker";
@@ -48,7 +49,7 @@ interface CentralizedUpdate {
   type: string;
   category: string;
   title: string;
-  summary: string;
+  summary?: string;
   urgency?: string;
   fromName?: string;
   fromId?: string;
@@ -74,7 +75,8 @@ export default function CentralizedUpdates() {
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
   const [showProcessingSteps, setShowProcessingSteps] = useState(false);
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
-  
+  const [showingManualProposal, setShowingManualProposal] = useState<Set<string>>(new Set());
+
   // Fetch paginated centralized updates
   const {
     results: paginatedUpdates,
@@ -94,6 +96,7 @@ export default function CentralizedUpdates() {
   const updateProposalWithEdits = useMutation(api.centralizedUpdates.updateProposalWithEdits);
   const rejectProposals = useMutation(api.centralizedUpdates.rejectProposals);
   const archiveUpdate = useMutation(api.centralizedUpdates.archiveUpdate);
+  const markAsViewed = useMutation(api.centralizedUpdates.markAsViewed);
   const markAllAsViewed = useMutation(api.centralizedUpdates.markAllAsViewed);
   const summarizeEmails = useAction(api.centralizedEmails.summarizeCentralizedInbox); // Action with duplicate prevention
   const emailConnection = useQuery(api.nylas.queries.getEmailConnection);
@@ -112,6 +115,11 @@ export default function CentralizedUpdates() {
       newExpanded.delete(id);
     } else {
       newExpanded.add(id);
+      // Mark as viewed when user expands to look at details
+      markAsViewed({ updateId: id as Id<"centralizedUpdates"> })
+        .catch(error => {
+          console.log('Failed to mark as viewed:', error);
+        });
     }
     setExpandedUpdates(newExpanded);
   };
@@ -186,51 +194,10 @@ export default function CentralizedUpdates() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowStatus, activeWorkflowId]); // processingSteps intentionally omitted to prevent infinite loop
 
-  // Mark all updates as viewed on component mount (new session)
-  useEffect(() => {
-    // Small delay to avoid race conditions with initial data loading
-    const timer = setTimeout(() => {
-      markAllAsViewed()
-        .catch(error => {
-          // Silently handle errors - user might not have any updates yet
-          console.log('No updates to mark as viewed:', error);
-        });
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [markAllAsViewed]); // Only run once on mount, but include dependency for linting
-
-  // Mark as viewed when tab gains focus (returning to the page)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // Tab became visible - mark updates as viewed
-        markAllAsViewed()
-          .catch(error => {
-            console.log('No updates to mark on focus:', error);
-          });
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [markAllAsViewed])
-
   // Handle refresh (fetch new emails)
   const handleRefresh = useCallback(async () => {
     setLoading(true);
     setShowProcessingSteps(true);
-
-    // Mark all current updates as viewed before fetching new ones
-    try {
-      await markAllAsViewed();
-    } catch (error) {
-      // Silently handle - might not have any updates
-      console.log('No updates to mark before refresh:', error);
-    }
 
     // Initialize steps
     const initialSteps: ProcessingStep[] = [
@@ -343,7 +310,7 @@ export default function CentralizedUpdates() {
     } finally {
       setLoading(false);
     }
-  }, [summarizeEmails, markAllAsViewed]);
+  }, [summarizeEmails]);
   
   // Handle connect email
   const handleConnectEmail = async () => {
@@ -430,7 +397,46 @@ export default function CentralizedUpdates() {
   const handleDismissProposal = (updateId: string, proposalKey: string) => {
     setDismissedProposals(prev => new Set(prev).add(`${updateId}-${proposalKey}`));
   };
-  
+
+  // Handle mark all as read
+  const handleMarkAllAsRead = useCallback(async () => {
+    try {
+      await markAllAsViewed();
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+    }
+  }, [markAllAsViewed]);
+
+  // Handle quick approve (uses same mutation as EditableProposalCard)
+  const handleQuickApprove = useCallback(async (updateId: Id<"centralizedUpdates">, update: CentralizedUpdate) => {
+    if (processingUpdates.has(updateId) || !update.trackerProposals) return;
+
+    setProcessingUpdates(prev => new Set(prev).add(updateId));
+    try {
+      // Format proposals exactly like EditableProposalCard does
+      const editedProposals = update.trackerProposals.map(proposal => ({
+        trackerId: proposal.trackerId,
+        rowId: proposal.rowId,
+        editedColumns: proposal.columnUpdates.map(col => ({
+          columnKey: col.columnKey,
+          newValue: col.proposedValue,
+          targetColumnKey: col.columnKey,
+        })),
+      }));
+
+      await updateProposalWithEdits({ updateId, editedProposals });
+    } catch (error: any) {
+      alert(`Failed to approve: ${error?.message || 'Unknown error'}`);
+      console.error("Failed to approve proposals:", error);
+    } finally {
+      setProcessingUpdates(prev => {
+        const next = new Set(prev);
+        next.delete(updateId);
+        return next;
+      });
+    }
+  }, [updateProposalWithEdits, processingUpdates]);
+
   // Format time ago
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -465,6 +471,18 @@ export default function CentralizedUpdates() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Mark All as Read Button - only show in active view with unviewed items */}
+            {viewMode === "active" && stats && stats.active > 0 && (
+              <button
+                onClick={handleMarkAllAsRead}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                title="Mark all active updates as read"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Mark All as Read
+              </button>
+            )}
+
             {/* Refresh/Connect Button */}
             {emailConnection ? (
               <button
@@ -511,14 +529,6 @@ export default function CentralizedUpdates() {
             Archived ({stats?.archived || 0})
           </button>
         </div>
-        
-        {/* Stats summary */}
-        {stats && stats.withProposals > 0 && viewMode === "active" && !showProcessingSteps && (
-          <div className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700 bg-gray-50 px-3 py-1.5 rounded-md">
-            <Database className="h-4 w-4" />
-            {stats.withProposals} update{stats.withProposals > 1 ? 's' : ''} with tracker proposals
-          </div>
-        )}
 
         {/* Processing Steps - shown when processing */}
         <AnimatePresence mode="wait">
@@ -554,6 +564,8 @@ export default function CentralizedUpdates() {
             {updates.map((update, index) => {
               const isExpanded = expandedUpdates.has(update._id);
               const isProcessing = processingUpdates.has(update._id);
+              const shouldShowAsNew = !update.viewedAt && viewMode === "active";
+              const hasProposals = update.trackerProposals && update.trackerProposals.length > 0;
 
               return (
                 <motion.div
@@ -569,15 +581,17 @@ export default function CentralizedUpdates() {
                     delay: index * 0.05 // Stagger effect for multiple items
                   }}
                   className={`${isProcessing ? "opacity-50" : ""} relative overflow-hidden border-l-4 ${
-                    !update.viewedAt
-                      ? "border-blue-500 bg-gradient-to-r from-blue-50/30 to-transparent"
+                    shouldShowAsNew
+                      ? hasProposals
+                        ? "border-yellow-500 bg-gradient-to-r from-yellow-50/30 to-transparent"
+                        : "border-blue-500 bg-gradient-to-r from-blue-50/30 to-transparent"
                       : "border-transparent hover:border-gray-200"
                   } transition-colors`}
                 >
                   {/* New item highlight pulse - shows for recent items */}
                   {Date.now() - update.createdAt < 5000 && (
                     <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-blue-50 to-transparent pointer-events-none"
+                      className={`absolute inset-0 bg-gradient-to-r ${hasProposals ? 'from-yellow-50' : 'from-blue-50'} to-transparent pointer-events-none`}
                       initial={{ opacity: 0.8 }}
                       animate={{ opacity: 0 }}
                       transition={{ duration: 2, ease: "easeOut" }}
@@ -588,11 +602,11 @@ export default function CentralizedUpdates() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        {/* Blue dot indicator for unviewed updates */}
-                        {!update.viewedAt && (
+                        {/* Dot indicator for unviewed updates - yellow if has proposals, blue otherwise */}
+                        {shouldShowAsNew && (
                           <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${hasProposals ? 'bg-yellow-400' : 'bg-blue-400'} opacity-75`}></span>
+                            <span className={`relative inline-flex rounded-full h-2 w-2 ${hasProposals ? 'bg-yellow-500' : 'bg-blue-500'}`}></span>
                           </span>
                         )}
                         <Mail className="h-4 w-4 text-gray-400" />
@@ -602,16 +616,15 @@ export default function CentralizedUpdates() {
                         <span className="text-xs text-gray-400">
                           {formatTimeAgo(update.createdAt)}
                         </span>
-                        {/* NEW badge for unviewed updates */}
-                        {!update.viewedAt && (
-                          <span className="px-1.5 py-0.5 text-xs font-semibold text-blue-600 bg-blue-100 rounded">
+                        {/* NEW badge for unviewed updates - yellow if has proposals, blue otherwise */}
+                        {shouldShowAsNew && (
+                          <span className={`px-1.5 py-0.5 text-xs font-semibold ${hasProposals ? 'text-yellow-600 bg-yellow-100' : 'text-blue-600 bg-blue-100'} rounded`}>
                             NEW
                           </span>
                         )}
                       </div>
                       <h3 className="font-medium text-gray-900">{update.title}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{update.summary}</p>
-                      
+
                       {/* Tracker badges with data - only show if there are proposals */}
                       {update.trackerProposals && update.trackerProposals.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -639,7 +652,7 @@ export default function CentralizedUpdates() {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Actions */}
                     <div className="flex items-center gap-1">
                       {update.processed ? (
@@ -659,10 +672,24 @@ export default function CentralizedUpdates() {
                         </div>
                       ) : (
                         <>
+                          {/* Approve button - only show if has proposals */}
+                          {hasProposals && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuickApprove(update._id, update);
+                              }}
+                              disabled={isProcessing}
+                              className="p-1 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+                              title="Approve all proposals"
+                            >
+                              <Check className="h-4 w-4 text-green-600" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDismissUpdate(update._id)}
                             className="p-1 hover:bg-gray-100 rounded transition-colors"
-                            title="Dismiss"
+                            title="Archive"
                           >
                             <X className="h-4 w-4 text-gray-400" />
                           </button>
@@ -742,9 +769,41 @@ export default function CentralizedUpdates() {
                         )}
                       </>
                     ) : (
-                      <div className="text-center py-4 text-gray-500">
-                        <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                        <p>No tracker proposals for this update</p>
+                      <div className="py-4">
+                        {showingManualProposal.has(update._id) ? (
+                          <ManualProposalCreator
+                            availableTrackers={availableTrackers}
+                            onApply={(editedProposal) => {
+                              handleApplyEditedProposal(update._id, editedProposal);
+                              setShowingManualProposal(prev => {
+                                const next = new Set(prev);
+                                next.delete(update._id);
+                                return next;
+                              });
+                            }}
+                            onCancel={() => {
+                              setShowingManualProposal(prev => {
+                                const next = new Set(prev);
+                                next.delete(update._id);
+                                return next;
+                              });
+                            }}
+                            isProcessing={isProcessing}
+                          />
+                        ) : (
+                          <div className="text-center py-4 text-gray-500">
+                            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                            <p className="mb-3">No tracker proposals for this update</p>
+                            <button
+                              onClick={() => {
+                                setShowingManualProposal(prev => new Set(prev).add(update._id));
+                              }}
+                              className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm"
+                            >
+                              Add Proposal Manually
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
