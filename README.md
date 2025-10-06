@@ -23,7 +23,6 @@ These agents integrate seamlessly into Inseam's dashboard, allowing coordinators
 | Layer | Technology | Purpose |
 |-------|-------------|----------|
 | **Frontend (Web)** | Next.js 15, React 19, Tailwind CSS v4 | Modern UI with App Router |
-| **Frontend (Mobile)** | Expo, React Native | Native access on iOS/Android |
 | **Backend** | Convex | Realtime DB, server functions, scheduling |
 | **Auth** | Clerk | Authentication (Email, Google, Apple) |
 | **AI** | OpenAI API | Powering agentic workflows |
@@ -39,7 +38,7 @@ This is a **Turborepo** monorepo organized as follows:
 inseam/
 ├── apps/
 │   ├── web/         # Next.js 15 web dashboard
-│   └── native/      # Expo React Native app
+│   └── native/      # Expo React Native app (in development)
 ├── packages/
 │   └── backend/     # Convex backend (DB + functions)
 └── package.json
