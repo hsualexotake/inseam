@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
 import { Inter, Montserrat, Lato } from "next/font/google";
-import { cn } from "@/lib/utils";
 import "./globals.css";
 import ConvexClientProvider from "./ConvexClientProvider";
 
-const inter = Inter({ subsets: ["latin"] });
-const montserrat = Montserrat({ subsets: ["latin"] });
-const lato = Lato({ weight: "400", subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter"
+});
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  variable: "--font-montserrat"
+});
+const lato = Lato({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-lato"
+});
 
 export const metadata: Metadata = {
   title: "Notes App",
@@ -19,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={cn(inter.className, montserrat.className, lato.className)}>
+    <html lang="en" className={`${inter.variable} ${montserrat.variable} ${lato.variable}`}>
+      <body className={inter.className}>
         <ConvexClientProvider>{children}</ConvexClientProvider>
       </body>
     </html>
