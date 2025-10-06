@@ -17,7 +17,8 @@ import { cn } from "@/lib/utils";
 import { Logo, LogoIcon } from "@/components/dashboard/LogoComponents";
 import { useClerk } from "@clerk/nextjs";
 import ModernHeader from "@/components/dashboard/ModernHeader";
-import CentralizedUpdates from "@/components/dashboard/CentralizedUpdates";
+import EmailUpdatesSection from "@/components/dashboard/EmailUpdatesSection";
+import TrackerUpdatesSection from "@/components/dashboard/TrackerUpdatesSection";
 
 export default function DashboardPage() {
   const { signOut } = useClerk();
@@ -117,15 +118,12 @@ export default function DashboardPage() {
         </SidebarBody>
       </Sidebar>
       
-      <main className="flex-1 flex flex-col bg-white rounded-tl-2xl border border-gray-200">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6 pt-8">
-            <ModernHeader />
+      <main className="flex-1 flex flex-col bg-gray-100 rounded-tl-2xl border border-gray-200 overflow-hidden p-6 pt-8">
+        <ModernHeader />
 
-            <div className="mb-8 mx-auto" style={{ maxWidth: '84rem' }}>
-              <CentralizedUpdates />
-            </div>
-          </div>
+        <div className="grid grid-cols-[65%_35%] gap-6 flex-1 min-h-0">
+          <EmailUpdatesSection />
+          <TrackerUpdatesSection />
         </div>
       </main>
     </div>
