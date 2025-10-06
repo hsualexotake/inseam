@@ -9,12 +9,24 @@
 
 ### 🧠 AI Agent System
 Inseam includes an **agentic automation system** that assists production coordinators by:
-- 📅 Managing production timelines & deadlines  
-- 📦 Tracking samples and factory communication  
-- 📈 Generating updates and summaries automatically  
-- 🧾 Extracting key data from emails and documents  
+- 📅 Managing production timelines & deadlines
+- 📦 Tracking samples and factory communication
+- 📈 Generating updates and summaries automatically
+- 🧾 Extracting key data from emails and documents
 
 These agents integrate seamlessly into Inseam's dashboard, allowing coordinators to focus on decisions, not manual work.
+
+#### Architecture
+The AI agent system is built with a modular, extensible architecture using the Convex Agent framework:
+
+- **Agent Factory Pattern** (`packages/backend/convex/agents/core/factory.ts`): Centralized agent creation with dynamic imports, three-level configuration inheritance (default → agent-specific → custom), and full type safety
+- **Registry System** (`packages/backend/convex/agents/core/registry.ts`): Lazy-loaded agents using dynamic imports for optimal code splitting and performance
+- **Pre-built Agents**: Summary (document processing), Notes (with 5 built-in tools), Research, Analysis, and Creative agents—each optimized with specific temperature settings and instructions
+- **Tool System**: Extensible tools using Zod validation for type-safe input/output, with composable design across agents
+- **Thread Management**: `withAgentThread` helper ensures all interactions are tracked with conversation history and playground visibility for debugging
+- **Streaming Support**: Real-time text streaming with configurable chunking and throttling for responsive UX
+
+Agents can be created via `AgentFactory.create(type, customConfig)` or fully customized with `AgentFactory.createCustom(config)`. See `CLAUDE.md` for detailed usage patterns.
 
 ---
 
@@ -55,8 +67,8 @@ Make sure you have the following installed:
 - **Node.js** v18+
 - **Corepack** (comes with Node 16+)
 - **Yarn** (managed via Corepack)
-- **Convex CLI** (`npm install -g convex`)
-- **Expo CLI** (`npm install -g expo`)
+- **Convex CLI** (`yarn global add convex`)
+- **Expo CLI** (`yarn global add expo`)
 
 Enable Corepack:
 ```bash

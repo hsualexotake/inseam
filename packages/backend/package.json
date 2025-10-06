@@ -15,7 +15,7 @@
     "test:coverage": "vitest --coverage",
     "test:ui": "vitest --ui",
     "playground:apikey": "convex run --component agent apiKeys:issue '{name:\"playground\"}'",
-    "playground:local": "npx @convex-dev/agent-playground",
+    "playground:local": "yarn dlx @convex-dev/agent-playground",
     "playground:help": "echo 'Step 1: Generate API key with yarn playground:apikey\\nStep 2: Run yarn playground:local or visit https://get-convex.github.io/agent/\\nStep 3: Enter your Convex URL and API key'"
   },
   "author": "",
