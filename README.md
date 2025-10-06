@@ -1,194 +1,160 @@
-# Fullstack monorepo template feat. Expo, Turbo, Next.js, Convex, Clerk
+# 🧵 Inseam AI
 
-This is a modern TypeScript monorepo template with AI web and native apps
-featuring:
+> Inseam is a fullstack AI-powered system designed to **automate outdated workflows for production coordinators in the fashion industry**.  
+> Built with **Convex**, **Next.js**, **React**, **Expo**, and **Clerk**, Inseam combines real-time collaboration, user-friendly design, and agentic automation to help teams work faster and smarter.
 
-- Turborepo: Monorepo management
-- React 19: Latest React with concurrent features
-- Next.js 15: Web app & marketing page with App Router
-- Tailwind CSS v4: Modern CSS-first configuration
-- React Native [Expo](https://expo.dev/): Mobile/native app with New Architecture
-- [Convex](https://convex.dev): Backend, database, server functions
-- [Clerk](https://clerk.dev): User authentication
-- OpenAI: Text summarization (optional)
+---
 
-The example app is a note taking app that can summarize notes using AI. Features
-include:
+## 🚀 Highlights
 
-- Marketing page
-- Dashboard page (web & native)
-- Note taking page (web & native)
-- Backend API that serves web & native with the same API
-- Relational database
-- End to end type safety (schema definition to frontend API clients)
-- User authentication
-- Asynchronous call to an OpenAI
-- Everything is realtime by default
+### 🧠 AI Agent System
+Inseam includes an **agentic automation system** that assists production coordinators by:
+- 📅 Managing production timelines & deadlines  
+- 📦 Tracking samples and factory communication  
+- 📈 Generating updates and summaries automatically  
+- 🧾 Extracting key data from emails and documents  
 
-## Using this example
+These agents integrate seamlessly into Inseam's dashboard, allowing coordinators to focus on decisions, not manual work.
 
-### 1. Install dependencies
+---
 
-If you don't have `yarn` installed, use corepack (comes with Node.js 16+):
-```sh
+### ⚙️ Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-------------|----------|
+| **Frontend (Web)** | Next.js 15, React 19, Tailwind CSS v4 | Modern UI with App Router |
+| **Frontend (Mobile)** | Expo, React Native | Native access on iOS/Android |
+| **Backend** | Convex | Realtime DB, server functions, scheduling |
+| **Auth** | Clerk | Authentication (Email, Google, Apple) |
+| **AI** | OpenAI API | Powering agentic workflows |
+| **Infra** | Turborepo | Monorepo management |
+
+---
+
+## 🧱 Project Structure
+
+This is a **Turborepo** monorepo organized as follows:
+
+```
+inseam/
+├── apps/
+│   ├── web/         # Next.js 15 web dashboard
+│   └── native/      # Expo React Native app
+├── packages/
+│   └── backend/     # Convex backend (DB + functions)
+└── package.json
+```
+
+Each app shares the same **Convex backend**, **types**, and **auth layer**, ensuring end-to-end consistency.
+
+---
+
+## ⚙️ Setup Instructions
+
+### 1. Prerequisites
+Make sure you have the following installed:
+- **Node.js** v18+
+- **Corepack** (comes with Node 16+)
+- **Yarn** (managed via Corepack)
+- **Convex CLI** (`npm install -g convex`)
+- **Expo CLI** (`npm install -g expo`)
+
+Enable Corepack:
+```bash
 corepack enable
 corepack prepare yarn@1.22.19 --activate
 ```
 
-Run `yarn`.
+### 2. Install Dependencies
+From the root directory:
+```bash
+yarn
+```
 
-### 2. Configure Convex
-
-> Note: The following command will print an error and ask you to add the
-> appropriate environment variable to proceed. Continue reading on for how to do
-> that.
-
-```sh
+### 3. Configure Convex
+Set up Convex (backend + DB):
+```bash
 yarn workspace @packages/backend setup
 ```
 
-The script will log you into Convex if you aren't already and prompt you to
-create a project (free). It will then wait to deploy your code until you set the
-environment variables in the dashboard.
+Follow the prompts to create a Convex project.  
+Then, in your Convex dashboard, set the following environment variables:
 
-Configure Clerk with [this guide](https://docs.convex.dev/auth/clerk). Then add
-the `CLERK_ISSUER_URL` found in the "convex" template
-[here](https://dashboard.clerk.com/last-active?path=jwt-templates), to your
-Convex environment variables
-[here](https://dashboard.convex.dev/deployment/settings/environment-variables&var=CLERK_ISSUER_URL).
+| Variable | Description |
+|----------|-------------|
+| `CLERK_ISSUER_URL` | Found in Clerk JWT Templates |
+| `OPENAI_API_KEY` | From OpenAI Dashboard |
 
-Make sure to enable **Google and Apple** as possible Social Connection
-providers, as these are used by the React Native login implementation.
+### 4. Configure Clerk
+Create a Clerk project and enable **Email**, **Google**, and **Apple** sign-ins.  
+Then, in both the web and native apps, add your Clerk environment variables:
 
-After that, optionally add the `OPENAI_API_KEY` env var from
-[OpenAI](https://platform.openai.com/account/api-keys) to your Convex
-environment variables to get AI summaries.
+```ini
+CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+```
 
-The `setup` command should now finish successfully.
+### 5. Configure Web & Native Apps
+In each app directory (`apps/web` and `apps/native`), create a `.env.local` file using `.example.env` as a template:
 
-### 3. Configure both apps
+```ini
+NEXT_PUBLIC_CONVEX_URL=your_convex_url
+EXPO_PUBLIC_CONVEX_URL=your_convex_url
+CLERK_PUBLISHABLE_KEY=your_clerk_key
+```
 
-In each app directory (`apps/web`, `apps/native`) create a `.env.local` file
-using the `.example.env` as a template and fill out your Convex and Clerk
-environment variables.
-
-- Use the `CONVEX_URL` from `packages/backend/.env.local` for
-  `{NEXT,EXPO}_PUBLIC_CONVEX_URL`.
-- The Clerk publishable & secret keys can be found
-  [here](https://dashboard.clerk.com/last-active?path=api-keys).
-
-### 4. Run both apps
-
-Run the following command to run both the web and mobile apps:
-
-```sh
+### 6. Run the Apps
+To run all apps (web, native, backend):
+```bash
 yarn dev
 ```
 
-This will allow you to use the ⬆ and ⬇ keyboard keys to see logs for each
-of the Convex backend, web app, and mobile app separately.
-If you'd rather see all of the logs in one place, delete the
-`"ui": "tui",` line in [turbo.json](./turbo.json).
+Use arrow keys (⬆⬇) to switch logs between services.  
+If you want to see all logs together, remove `"ui": "tui"` from `turbo.json`.
 
-## Deploying
+Run individual apps:
+```bash
+# Web
+yarn workspace @apps/web dev
 
-In order to both deploy the frontend and Convex, run this as the build command from the apps/web directory:
+# Mobile
+yarn workspace @apps/native start
 
-```sh
+# Backend
+yarn workspace @packages/backend dev
+```
+
+### 7. Deploy
+To deploy Convex and build your frontend (Vercel ready):
+```bash
+cd apps/web
 cd ../../packages/backend && yarn convex deploy --cmd 'cd ../../apps/web && turbo run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL
 ```
 
-There is a vercel.json file in the apps/web directory with this configuration for Vercel.
+There's a `vercel.json` file in `apps/web` with the correct configuration.
 
-## What's inside?
+---
 
-This monorepo template includes the following packages/apps:
+## 🧠 Product Vision
 
-### Apps and Packages
+Inseam was built from dozens of conversations with fashion production coordinators to solve real problems:
 
-- `web`: a [Next.js 15](https://nextjs.org/) app with Tailwind CSS and Clerk
-- `native`: a [React Native](https://reactnative.dev/) app built with
-  [expo](https://docs.expo.dev/)
-- `packages/backend`: a [Convex](https://www.convex.dev/) folder with the
-  database schema and shared functions
+❌ **Manual tracking via spreadsheets**  
+❌ **Endless email threads for approvals**  
+❌ **Outdated sample tracking tools**  
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+✅ **One system for production visibility**  
+✅ **AI agents that surface insights & automate tasks**  
+✅ **Collaborative dashboard for teams**  
 
-To install a new package, `cd` into that directory, such as [packages/backend](./packages/backend/), and then run `yarn add mypackage@latest`
+---
 
-### Utilities
+## 🧩 What's Inside
 
-This Turborepo has some additional tools already setup for you:
+✅ AI agent system automating key workflows  
+✅ Web dashboard (Next.js 15 + Tailwind)  
+✅ Realtime backend (Convex)  
+✅ Authentication (Clerk)  
+✅ Type safety end-to-end  
+✅ OpenAI integration for automation and summarization  
 
-- [Expo](https://docs.expo.dev/) for native development
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [Prettier](https://prettier.io) for code formatting
-
-# What is Convex?
-
-[Convex](https://convex.dev) is a hosted backend platform with a built-in
-reactive database that lets you write your
-[database schema](https://docs.convex.dev/database/schemas) and
-[server functions](https://docs.convex.dev/functions) in
-[TypeScript](https://docs.convex.dev/typescript). Server-side database
-[queries](https://docs.convex.dev/functions/query-functions) automatically
-[cache](https://docs.convex.dev/functions/query-functions#caching--reactivity)
-and [subscribe](https://docs.convex.dev/client/react#reactivity) to data,
-powering a
-[realtime `useQuery` hook](https://docs.convex.dev/client/react#fetching-data)
-in our [React client](https://docs.convex.dev/client/react). There are also
-clients for [Python](https://docs.convex.dev/client/python),
-[Rust](https://docs.convex.dev/client/rust),
-[ReactNative](https://docs.convex.dev/client/react-native), and
-[Node](https://docs.convex.dev/client/javascript), as well as a straightforward
-[HTTP API](https://github.com/get-convex/convex-js/blob/main/src/browser/http_client.ts#L40).
-
-The database supports
-[NoSQL-style documents](https://docs.convex.dev/database/document-storage) with
-[relationships](https://docs.convex.dev/database/document-ids) and
-[custom indexes](https://docs.convex.dev/database/indexes/) (including on fields
-in nested objects).
-
-The [`query`](https://docs.convex.dev/functions/query-functions) and
-[`mutation`](https://docs.convex.dev/functions/mutation-functions) server
-functions have transactional, low latency access to the database and leverage
-our [`v8` runtime](https://docs.convex.dev/functions/runtimes) with
-[determinism guardrails](https://docs.convex.dev/functions/runtimes#using-randomness-and-time-in-queries-and-mutations)
-to provide the strongest ACID guarantees on the market: immediate consistency,
-serializable isolation, and automatic conflict resolution via
-[optimistic multi-version concurrency control](https://docs.convex.dev/database/advanced/occ)
-(OCC / MVCC).
-
-The [`action` server functions](https://docs.convex.dev/functions/actions) have
-access to external APIs and enable other side-effects and non-determinism in
-either our [optimized `v8` runtime](https://docs.convex.dev/functions/runtimes)
-or a more
-[flexible `node` runtime](https://docs.convex.dev/functions/runtimes#nodejs-runtime).
-
-Functions can run in the background via
-[scheduling](https://docs.convex.dev/scheduling/scheduled-functions) and
-[cron jobs](https://docs.convex.dev/scheduling/cron-jobs).
-
-Development is cloud-first, with
-[hot reloads for server function](https://docs.convex.dev/cli#run-the-convex-dev-server)
-editing via the [CLI](https://docs.convex.dev/cli). There is a
-[dashboard UI](https://docs.convex.dev/dashboard) to
-[browse and edit data](https://docs.convex.dev/dashboard/deployments/data),
-[edit environment variables](https://docs.convex.dev/production/environment-variables),
-[view logs](https://docs.convex.dev/dashboard/deployments/logs),
-[run server functions](https://docs.convex.dev/dashboard/deployments/functions),
-and more.
-
-There are built-in features for
-[reactive pagination](https://docs.convex.dev/database/pagination),
-[file storage](https://docs.convex.dev/file-storage),
-[reactive search](https://docs.convex.dev/text-search),
-[https endpoints](https://docs.convex.dev/functions/http-actions) (for
-webhooks),
-[streaming import/export](https://docs.convex.dev/database/import-export/), and
-[runtime data validation](https://docs.convex.dev/database/schemas#validators)
-for [function arguments](https://docs.convex.dev/functions/args-validation) and
-[database data](https://docs.convex.dev/database/schemas#schema-validation).
-
-Everything scales automatically, and it’s
-[free to start](https://www.convex.dev/plans).
