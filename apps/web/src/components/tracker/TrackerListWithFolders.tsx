@@ -117,27 +117,25 @@ function TrackerListContent() {
       <div className="flex-1 p-6">
         <div className="max-w-6xl mx-auto">
           {/* Breadcrumb */}
-          <motion.div
-            className="flex items-center gap-2 text-sm text-gray-600 mb-6"
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-          >
-            <button
-              onClick={() => setSelectedFolderId(null)}
-              className="hover:text-gray-900"
+          {selectedFolderId && (
+            <motion.div
+              className="flex items-center gap-2 text-sm text-gray-600 mb-6"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
             >
-              All Trackers
-            </button>
-            {selectedFolderId && (
-              <>
-                <ChevronRight className="w-4 h-4" />
-                <span className="text-gray-900 font-medium">
-                  {getBreadcrumbText()}
-                </span>
-              </>
-            )}
-          </motion.div>
+              <button
+                onClick={() => setSelectedFolderId(null)}
+                className="hover:text-gray-900"
+              >
+                All Trackers
+              </button>
+              <ChevronRight className="w-4 h-4" />
+              <span className="text-gray-900 font-medium">
+                {getBreadcrumbText()}
+              </span>
+            </motion.div>
+          )}
 
           {/* Header */}
           <motion.div
@@ -147,7 +145,7 @@ function TrackerListContent() {
             transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
           >
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-semibold text-gray-900">
                 {getBreadcrumbText()}
               </h1>
               {selectedFolderId === 'unfiled' && (

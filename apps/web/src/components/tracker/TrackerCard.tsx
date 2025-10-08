@@ -56,7 +56,7 @@ export default function TrackerCard({
         {/* Header Section */}
         <div className="flex-1">
           <div className="mb-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-2 truncate group-hover:text-black transition-colors">
+            <h3 className="text-heading-lg mb-2 truncate group-hover:text-black transition-colors">
               {tracker.name}
             </h3>
             {tracker.description && (

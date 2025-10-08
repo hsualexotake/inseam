@@ -207,6 +207,7 @@ export const getCentralizedStats = query({
         approved: 0,
         rejected: 0,
         withProposals: 0,
+        unread: 0,
       };
     }
 
@@ -228,6 +229,7 @@ export const getCentralizedStats = query({
     const withProposals = allUpdates.filter(u =>
       !u.archivedAt && u.trackerProposals && u.trackerProposals.length > 0
     ).length;
+    const unread = allUpdates.filter(u => !u.archivedAt && !u.viewedAt).length;
 
     return {
       total,
@@ -237,6 +239,7 @@ export const getCentralizedStats = query({
       approved,
       rejected,
       withProposals,
+      unread,
     };
   },
 });
