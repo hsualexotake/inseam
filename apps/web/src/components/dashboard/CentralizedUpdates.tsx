@@ -511,8 +511,8 @@ export default function CentralizedUpdates() {
           <button
             onClick={() => setViewMode("active")}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              viewMode === "active" 
-                ? "bg-gray-900 text-white" 
+              viewMode === "active"
+                ? "bg-gray-900 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -521,8 +521,8 @@ export default function CentralizedUpdates() {
           <button
             onClick={() => setViewMode("archived")}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              viewMode === "archived" 
-                ? "bg-gray-900 text-white" 
+              viewMode === "archived"
+                ? "bg-gray-900 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >

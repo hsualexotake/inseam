@@ -180,7 +180,7 @@ export default function TrackerUpdatesSection() {
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles className="h-5 w-5 text-indigo-500" />
-          <h2 className="text-lg font-semibold text-gray-900">Tracker Updates</h2>
+          <h2 className="text-heading-lg mb-1">Tracker Updates</h2>
         </div>
         <p className="text-sm text-gray-600">
           Last Refreshed: <span className="font-medium">{lastRefreshTime}</span>

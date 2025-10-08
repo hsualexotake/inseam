@@ -109,14 +109,14 @@
   /* Headings */
   .text-heading-lg {
     font-size: var(--typography-lg);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.3;
     color: var(--color-gray-900, #111827);
   }
 
   .text-heading-base {
     font-size: var(--typography-base);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.4;
     color: var(--color-gray-900, #111827);
   }
@@ -139,7 +139,7 @@
   /* Captions and metadata - 14px */
   .text-caption {
     font-size: var(--typography-sm);
-    font-weight: 400;
+    font-weight: 300;
     line-height: 1.4;
     color: var(--color-gray-600, #4b5563);
   }
