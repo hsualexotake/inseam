@@ -190,7 +190,12 @@ export const initiateNylasAuth = action({
     
     // Validate redirect URI for security
     const allowedDomains = getAllowedRedirectDomains();
-    
+
+    // TODO: REMOVE DEBUG LOGS AFTER FIXING REDIRECT URI ISSUE
+    console.log("DEBUG - Validating redirect URI:", redirectUri);
+    console.log("DEBUG - Allowed domains:", allowedDomains);
+    console.log("DEBUG - Validation result:", isValidRedirectUri(redirectUri, allowedDomains));
+
     if (!isValidRedirectUri(redirectUri, allowedDomains)) {
       throw new Error("Invalid redirect URI");
     }
