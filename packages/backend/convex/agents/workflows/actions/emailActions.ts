@@ -110,8 +110,8 @@ export const analyzeAndExtractEmailOptimized = internalAction({
       });
     });
 
-    // Use relevant trackers if any found, otherwise use all (to avoid false negatives)
-    const trackersToProcess = relevantTrackers.length > 0 ? relevantTrackers : trackers;
+    // Use relevant trackers if any found, limit to top 5 to reduce noise
+    const trackersToProcess = relevantTrackers.length > 0 ? relevantTrackers.slice(0, 5) : [];
 
     console.log(`Pre-filtered ${trackers.length} trackers to ${trackersToProcess.length} relevant ones`);
 
@@ -140,8 +140,8 @@ Available Trackers (simplified):
 ${JSON.stringify(simplifiedTrackers, null, 2)}
 
 Instructions:
-1. Identify which trackers match this email
-2. For each matching tracker, extract values for its columns
+1. Identify ONLY the single most relevant tracker that matches this email
+2. For the matching tracker, extract values for its columns
 3. Return JSON with this EXACT structure:
 
 {
@@ -159,10 +159,11 @@ Instructions:
 }
 
 Rules:
-- Only include trackers that actually match the email content
+- Return ONLY ONE tracker - the single most relevant match
+- Only return a match if confidence is 75% or higher
 - Extract actual values, not descriptions ("12" not "sku code 12")
 - For dates, extract the date value ("sep 13" not "delivery date updated to sep 13")
-- If no trackers match, return {"matches": []}
+- If no tracker clearly matches or confidence is below 75%, return {"matches": []}
 - MUST return valid JSON only`;
 
     try {
@@ -193,6 +194,12 @@ Rules:
       const extractedData: Record<string, any> = {};
 
       for (const match of parsedResult.matches || []) {
+        // Filter out low confidence matches
+        if (!match.confidence || match.confidence < 0.7) {
+          console.log(`Skipping low confidence match (${match.confidence}) for tracker ${match.trackerId}`);
+          continue;
+        }
+
         const tracker = trackers.find(t => t.id === match.trackerId);
         if (!tracker) continue;
 
