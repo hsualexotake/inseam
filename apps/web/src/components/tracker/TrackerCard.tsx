@@ -59,11 +59,9 @@ export default function TrackerCard({
             <h3 className="text-heading-lg mb-2 truncate group-hover:text-black transition-colors">
               {tracker.name}
             </h3>
-            {tracker.description && (
-              <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
-                {tracker.description}
-              </p>
-            )}
+            <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed min-h-[40px]">
+              {tracker.description || ''}
+            </p>
           </div>
 
           {/* Metadata Section */}

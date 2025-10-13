@@ -250,9 +250,9 @@ export default function TrackerUpdatesSection() {
                             onMouseEnter={() => setHoveredUpdate(uniqueUpdateKey)}
                             onMouseLeave={() => setHoveredUpdate(null)}
                           >
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
                               {/* Left: Update info */}
-                              <div className="flex-1 min-w-0">
+                              <div className="flex-1">
                                 <p className="text-sm text-gray-900 mb-1">
                                   Update {updateDescription}
                                 </p>
@@ -261,32 +261,28 @@ export default function TrackerUpdatesSection() {
                                 </p>
                               </div>
 
-                              {/* Right: Actions */}
+                              {/* Right: Actions - Fixed width to prevent text shift */}
                               {!update.processed && (
-                                <div className="flex items-center gap-1 relative">
-                                  {/* Approve/Reject buttons - show on hover */}
-                                  {isHovered && (
-                                    <>
-                                      <button
-                                        onClick={() => handleApprove(updateId, proposal)}
-                                        disabled={isProcessing}
-                                        className="px-2 py-1 bg-gray-900 text-white text-xs font-medium rounded hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center gap-1"
-                                        title="Approve"
-                                      >
-                                        <Check className="h-3 w-3" />
-                                        Approve
-                                      </button>
-                                      <button
-                                        onClick={() => handleReject(updateId)}
-                                        disabled={isProcessing}
-                                        className="px-2 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center gap-1"
-                                        title="Reject"
-                                      >
-                                        <X className="h-3 w-3" />
-                                        Reject
-                                      </button>
-                                    </>
-                                  )}
+                                <div className="flex items-center gap-1 relative" style={{ minWidth: '200px', justifyContent: 'flex-end' }}>
+                                  {/* Approve/Reject buttons - fade in/out on hover */}
+                                  <button
+                                    onClick={() => handleApprove(updateId, proposal)}
+                                    disabled={isProcessing}
+                                    className={`px-2 py-1 bg-gray-900 text-white text-xs font-medium rounded hover:bg-gray-800 disabled:opacity-50 flex items-center gap-1 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                                    title="Approve"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleReject(updateId)}
+                                    disabled={isProcessing}
+                                    className={`px-2 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                                    title="Reject"
+                                  >
+                                    <X className="h-3 w-3" />
+                                    Reject
+                                  </button>
 
                                   {/* Dropdown icon - always visible */}
                                   <button
