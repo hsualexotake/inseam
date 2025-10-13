@@ -12,8 +12,8 @@ const Logo = ({ isMobile }: Props) => {
       <div className="flex gap-2 items-center">
         <Image src={"/images/combologo.png"} width={32} height={32} alt="logo" className="object-contain" />
         {!isMobile ? (
-          <h1 className="font-montserrat text-black text-3xl sm:text-[35px] not-italic font-normal leading-[90.3%] tracking-[-0.875px]">
-            Inseam
+          <h1 className="logofont text-black text-3xl sm:text-[35px] not-italic">
+            inseam
           </h1>
         ) : null}
       </div>
