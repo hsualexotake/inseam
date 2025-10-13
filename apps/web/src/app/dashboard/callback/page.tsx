@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { useAction } from 'convex/react';
 import { api } from '@packages/backend/convex/_generated/api';
 
-export default function DashboardCallbackPage() {
+function CallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -141,5 +141,26 @@ export default function DashboardCallbackPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DashboardCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full space-y-8 p-8">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Loading...
+            </h2>
+          </div>
+        </div>
+      </div>
+    }>
+      <CallbackContent />
+    </Suspense>
   );
 }
