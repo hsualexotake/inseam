@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.32.1",
     "@clerk/nextjs": "^6.31.6",
     "@headlessui/react": "^2.0.3",
     "@heroicons/react": "^2.1.3",

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Montserrat, Lato } from "next/font/google";
+import { Inter, Montserrat, Lato, Libre_Baskerville } from "next/font/google";
 import "./globals.css";
 import ConvexClientProvider from "./ConvexClientProvider";
 
@@ -16,10 +16,19 @@ const lato = Lato({
   subsets: ["latin"],
   variable: "--font-lato"
 });
+const baskerville = Libre_Baskerville({
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-baskerville"
+});
 
 export const metadata: Metadata = {
-  title: "Notes App",
-  description: "This is an app to take notes.",
+  title: "Inseam",
+  description: "Intelligent tracking and updates delivered straight to your inbox.",
+  icons: {
+    icon: "/images/combologo.png",
+  },
 };
 
 export default function RootLayout({
@@ -28,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${montserrat.variable} ${lato.variable}`}>
+    <html lang="en" className={`${inter.variable} ${montserrat.variable} ${lato.variable} ${baskerville.variable}`}>
       <body className={inter.className}>
         <ConvexClientProvider>{children}</ConvexClientProvider>
       </body>

@@ -1,21 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import Header from "@/components/Header";
-import Benefits from "@/components/home/Benefits";
-import Footer from "@/components/home/Footer";
-import FooterHero from "@/components/home/FooterHero";
 import Hero from "@/components/home/Hero";
-import Testimonials from "@/components/home/Testimonials";
+import WaitlistModal from "@/components/home/WaitlistModal";
 
 export default function Home() {
+  const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
+
   return (
     <main>
-      <Header />
-      <Hero />
-      <Benefits />
-      <Testimonials />
-      <FooterHero />
-      <Footer />
+      <Header onOpenWaitlist={() => setIsWaitlistOpen(true)} />
+      <Hero onOpenWaitlist={() => setIsWaitlistOpen(true)} />
+      <WaitlistModal
+        isOpen={isWaitlistOpen}
+        onClose={() => setIsWaitlistOpen(false)}
+      />
     </main>
   );
 }

@@ -4,7 +4,7 @@ import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import Logo from "./common/Logo";
 import Link from "next/link";
-import { useUser } from "@clerk/clerk-react";
+import { useUser } from "@clerk/nextjs";
 import { UserNav } from "./common/UserNav";
 import { usePathname } from "next/navigation";
 
@@ -15,11 +15,17 @@ type NavigationItem = {
 };
 
 const navigation: NavigationItem[] = [
-  { name: "Benefits", href: "#Benefits", current: true },
-  { name: "Reviews", href: "#reviews", current: false },
+  { name: "Home", href: "/", current: true },
+  { name: "Pricing", href: "#pricing", current: false },
+  { name: "About", href: "#about", current: false },
+  { name: "Contact", href: "#contact", current: false },
 ];
 
-export default function Header() {
+interface HeaderProps {
+  onOpenWaitlist?: () => void;
+}
+
+export default function Header({ onOpenWaitlist }: HeaderProps) {
   const { user } = useUser();
   const pathname = usePathname();
 
@@ -56,43 +62,44 @@ export default function Header() {
                   </div>
                 )}
                 {user ? (
-                  <div className="hidden sm:flex absolute inset-y-0 right-0 gap-6 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                  <div className="hidden sm:flex absolute inset-y-0 right-0 gap-4 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                     <Link href="/dashboard">
                       <button
                         type="button"
-                        className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-[22px] py-[11px] button"
+                        className="px-6 py-2.5 text-white text-base font-medium rounded-lg bg-gray-900 hover:bg-gray-800 transition-colors"
                       >
                         Dashboard
                       </button>
                     </Link>
-                    <Link href="/notes">
-                      <button
-                        type="button"
-                        className=" text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-[22px] py-[11px] button"
-                      >
-                        See your Notes
-                      </button>
-                    </Link>
                     <UserNav
                       image={user?.imageUrl}
-                      name={user?.fullName!}
-                      email={user?.primaryEmailAddress?.emailAddress!}
+                      name={user?.fullName ?? 'User'}
+                      email={user?.primaryEmailAddress?.emailAddress ?? ''}
                     />
                   </div>
                 ) : (
-                  <div className="hidden sm:flex absolute inset-y-0 right-0 gap-6 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                  <div className="hidden sm:flex absolute inset-y-0 right-0 gap-4 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                     <Link
-                      href="/notes"
-                      className="border rounded-lg border-solid border-[#2D2D2D] text-[#2D2D2D] text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-[22px] py-2.5"
+                      href="/dashboard"
+                      className="px-5 py-2 text-gray-700 hover:text-gray-900 text-base font-medium transition-colors"
                     >
-                      Sign in
+                      Login
                     </Link>
-                    <Link
-                      href="/notes"
-                      className=" text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-[22px] py-[11px] button"
-                    >
-                      Get Started
-                    </Link>
+                    {onOpenWaitlist ? (
+                      <button
+                        onClick={onOpenWaitlist}
+                        className="px-6 py-2.5 text-white text-base font-medium rounded-lg bg-gray-900 hover:bg-gray-800 transition-colors"
+                      >
+                        Join Waitlist
+                      </button>
+                    ) : (
+                      <Link
+                        href="/dashboard"
+                        className="px-6 py-2.5 text-white text-base font-medium rounded-lg bg-gray-900 hover:bg-gray-800 transition-colors"
+                      >
+                        Get Started
+                      </Link>
+                    )}
                   </div>
                 )}
                 <div className="block sm:hidden">
@@ -126,34 +133,35 @@ export default function Header() {
               ))}
               <div className="flex gap-6 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                 {user ? (
-                  <>
-                    <Link
-                      href="/dashboard"
-                      className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-5 py-1.5 button"
-                    >
-                      Dashboard
-                    </Link>
-                    <Link
-                      href="/notes"
-                      className="text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-5 py-1.5 button"
-                    >
-                      See your Notes
-                    </Link>
-                  </>
+                  <Link
+                    href="/dashboard"
+                    className="px-5 py-2 text-white text-base font-medium rounded-lg bg-gray-900"
+                  >
+                    Dashboard
+                  </Link>
                 ) : (
                   <>
                     <Link
-                      href="/notes"
-                      className="border rounded-lg border-solid border-[#2D2D2D] text-[#2D2D2D] text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-5 py-[5px]"
+                      href="/dashboard"
+                      className="px-5 py-2 text-gray-700 text-base font-medium"
                     >
-                      Sign in
+                      Login
                     </Link>
-                    <Link
-                      href="/notes"
-                      className=" text-white text-center text-xl not-italic font-normal leading-[normal] font-montserrat px-5 py-1.5 button"
-                    >
-                      Get Started
-                    </Link>
+                    {onOpenWaitlist ? (
+                      <button
+                        onClick={onOpenWaitlist}
+                        className="px-5 py-2 text-white text-base font-medium rounded-lg bg-gray-900"
+                      >
+                        Join Waitlist
+                      </button>
+                    ) : (
+                      <Link
+                        href="/dashboard"
+                        className="px-5 py-2 text-white text-base font-medium rounded-lg bg-gray-900"
+                      >
+                        Get Started
+                      </Link>
+                    )}
                   </>
                 )}
               </div>
