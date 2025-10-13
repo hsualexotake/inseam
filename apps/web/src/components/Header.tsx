@@ -6,20 +6,6 @@ import Logo from "./common/Logo";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { UserNav } from "./common/UserNav";
-import { usePathname } from "next/navigation";
-
-type NavigationItem = {
-  name: string;
-  href: string;
-  current: boolean;
-};
-
-const navigation: NavigationItem[] = [
-  { name: "Home", href: "/", current: true },
-  { name: "Pricing", href: "#pricing", current: false },
-  { name: "About", href: "#about", current: false },
-  { name: "Contact", href: "#contact", current: false },
-];
 
 interface HeaderProps {
   onOpenWaitlist?: () => void;
@@ -27,7 +13,6 @@ interface HeaderProps {
 
 export default function Header({ onOpenWaitlist }: HeaderProps) {
   const { user } = useUser();
-  const pathname = usePathname();
 
   return (
     <Disclosure as="nav" className=" ">
