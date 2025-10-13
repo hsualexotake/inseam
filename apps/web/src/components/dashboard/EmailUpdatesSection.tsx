@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useAction, usePaginatedQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
-import { Mail, RefreshCw, CheckCheck, Package, ChevronDown, ChevronUp, CheckCircle, XCircle, AlertCircle, Check, X } from "lucide-react";
+import { Mail, RefreshCw, CheckCheck, Package, ChevronDown, ChevronUp, CheckCircle, AlertCircle } from "lucide-react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { getColorClasses } from "../ui/ColorPicker";
 import ProcessingSteps, { type ProcessingStep } from "./ProcessingSteps";
@@ -400,6 +400,7 @@ export default function EmailUpdatesSection() {
   }, [rejectProposals, processingUpdates]);
 
   // Handle dismissing an update
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDismissUpdate = useCallback(async (updateId: Id<"centralizedUpdates">) => {
     try {
       await archiveUpdate({ updateId });
@@ -414,6 +415,7 @@ export default function EmailUpdatesSection() {
   };
 
   // Handle quick approve
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleQuickApprove = useCallback(async (updateId: Id<"centralizedUpdates">, update: CentralizedUpdate) => {
     if (processingUpdates.has(updateId) || !update.trackerProposals) return;
 
@@ -648,7 +650,7 @@ export default function EmailUpdatesSection() {
                         {/* Tracker proposals */}
                         {hasProposals ? (
                           <div className="space-y-3 mt-4">
-                            {update.trackerProposals.map((proposal) => {
+                            {update.trackerProposals?.map((proposal) => {
                               const proposalKey = `${proposal.trackerId}-${proposal.rowId}`;
                               const isDismissed = dismissedProposals.has(`${update._id}-${proposalKey}`);
 
@@ -678,7 +680,7 @@ export default function EmailUpdatesSection() {
                               );
                             })}
 
-                            {!update.processed && update.trackerProposals.some(p =>
+                            {!update.processed && update.trackerProposals?.some(p =>
                               !dismissedProposals.has(`${update._id}-${p.trackerId}-${p.rowId}`)
                             ) && (
                               <div className="flex gap-2">
