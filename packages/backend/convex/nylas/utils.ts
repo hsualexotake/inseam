@@ -11,11 +11,6 @@ export function isValidRedirectUri(uri: string, allowedDomains: string[]): boole
   try {
     const url = new URL(uri);
 
-    // TODO: REMOVE DEBUG LOGS AFTER FIXING REDIRECT URI ISSUE
-    console.log("DEBUG - Parsed URL hostname:", url.hostname);
-    console.log("DEBUG - Parsed URL port:", url.port);
-    console.log("DEBUG - Full URL:", url.toString());
-
     // Check if the domain is in the allowed list
     return allowedDomains.some(domain => {
       // Support wildcards like *.example.com
