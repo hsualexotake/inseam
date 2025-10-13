@@ -42,25 +42,7 @@ export default function Header({ onOpenWaitlist }: HeaderProps) {
                 <div className="sm:flex hidden shrink-0 items-center">
                   <Logo />
                 </div>
-                {pathname === "/" && (
-                  <div className="flex flex-1 items-center justify-center ">
-                    <div className="hidden sm:ml-6 sm:block">
-                      <ul className="flex space-x-28">
-                        {navigation.map((item) => (
-                          <li key={item.name}>
-                            <Link
-                              href={item.href}
-                              className="text-[#2D2D2D] text-center text-xl not-italic font-normal leading-[normal]"
-                              aria-current={item.current ? "page" : undefined}
-                            >
-                              {item.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
+                <div className="flex-1"></div>
                 {user ? (
                   <div className="hidden sm:flex absolute inset-y-0 right-0 gap-4 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                     <Link href="/dashboard">
@@ -79,12 +61,6 @@ export default function Header({ onOpenWaitlist }: HeaderProps) {
                   </div>
                 ) : (
                   <div className="hidden sm:flex absolute inset-y-0 right-0 gap-4 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
-                    <Link
-                      href="/dashboard"
-                      className="px-5 py-2 text-gray-700 hover:text-gray-900 text-base font-medium transition-colors"
-                    >
-                      Login
-                    </Link>
                     {onOpenWaitlist ? (
                       <button
                         onClick={onOpenWaitlist}
@@ -120,17 +96,6 @@ export default function Header({ onOpenWaitlist }: HeaderProps) {
 
           <DisclosurePanel className="sm:hidden">
             <div className="space-y-1 px-2 pb-3 pt-2 flex flex-col gap-3 items-start">
-              {navigation.map((item) => (
-                <DisclosureButton
-                  key={item.name}
-                  as={Link}
-                  href={item.href}
-                  className="text-[#2D2D2D] text-center text-xl not-italic font-normal leading-[normal]"
-                  aria-current={item.current ? "page" : undefined}
-                >
-                  {item.name}
-                </DisclosureButton>
-              ))}
               <div className="flex gap-6 items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                 {user ? (
                   <Link
@@ -141,12 +106,6 @@ export default function Header({ onOpenWaitlist }: HeaderProps) {
                   </Link>
                 ) : (
                   <>
-                    <Link
-                      href="/dashboard"
-                      className="px-5 py-2 text-gray-700 text-base font-medium"
-                    >
-                      Login
-                    </Link>
                     {onOpenWaitlist ? (
                       <button
                         onClick={onOpenWaitlist}
