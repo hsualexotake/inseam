@@ -20,10 +20,11 @@
   --font-lato: Lato, sans-serif;
   --font-montserrat: Montserrat, sans-serif;
   --font-baskerville: 'Libre Baskerville', serif;
+  --font-times: 'Times New Roman', serif;
 
   /* Hero-specific fonts */
-  --font-hero-headline: var(--font-baskerville);
-  --font-hero-subheadline: var(--font-inter);
+  --font-hero-headline: var(--font-inter);
+  --font-hero-subheadline: var(--font-times);
 
   --background-image-gradient-radial: radial-gradient(var(--tw-gradient-stops));
   --background-image-gradient-conic: conic-gradient(
@@ -149,22 +150,23 @@
     color: var(--color-gray-600, #4b5563);
   }
 
-  /* Hero typography - Distinct serif headline and clean sans-serif subheadline */
+  /* Hero typography - Bold sans-serif headline and elegant serif subheadline */
   .text-hero-headline {
     font-family: var(--font-hero-headline);
-    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-size: clamp(3rem, 7vw, 6rem);
     font-weight: 400;
-    line-height: 1.2;
+    line-height: 1.1;
     letter-spacing: -0.03em;
+    text-transform: uppercase;
     color: var(--color-gray-900, #111827);
   }
 
   .text-hero-subheadline {
     font-family: var(--font-hero-subheadline);
-    font-size: clamp(1rem, 2vw, 1.25rem);
-    font-weight: 300;
-    line-height: 1.6;
-    color: var(--color-gray-600, #4b5563);
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    font-weight: 200;
+    line-height: 1.5;
+    color: var(--color-gray-900, #111827);
   }
 
   /* Logo font */
