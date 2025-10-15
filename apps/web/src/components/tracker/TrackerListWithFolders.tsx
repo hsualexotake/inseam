@@ -31,7 +31,7 @@ export default function TrackerListWithFolders() {
 }
 
 function TrackerListContent() {
-  const [selectedFolderId, setSelectedFolderId] = useState<Id<"trackerFolders"> | null | 'unfiled'>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<Id<"trackerFolders"> | null>(null);
   const [deletingId, setDeletingId] = useState<Id<"trackers"> | null>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [editingFolder, setEditingFolder] = useState<{
@@ -43,15 +43,13 @@ function TrackerListContent() {
   // Determine the query parameters based on selection
   const queryParams = selectedFolderId === null
     ? { activeOnly: true } // All trackers - don't filter by folder
-    : selectedFolderId === 'unfiled'
-    ? { activeOnly: true, folderId: null } // Unfiled only
     : { activeOnly: true, folderId: selectedFolderId }; // Specific folder
 
   const trackers = useQuery(api.trackers.listTrackers, queryParams);
 
   const currentFolder = useQuery(
     api.trackerFolders.getFolder,
-    selectedFolderId && selectedFolderId !== 'unfiled' ? { folderId: selectedFolderId } : "skip"
+    selectedFolderId ? { folderId: selectedFolderId } : "skip"
   );
 
   const allFolders = useQuery(api.trackerFolders.listFolders);
@@ -98,9 +96,15 @@ function TrackerListContent() {
 
 
   const getBreadcrumbText = () => {
-    if (selectedFolderId === 'unfiled') return 'Unfiled Trackers';
     if (!selectedFolderId) return 'All Trackers';
     return currentFolder?.name || 'Loading...';
+  };
+
+  const handleTrackerSelect = (trackerId: Id<"trackers">) => {
+    const tracker = trackers?.find(t => t._id === trackerId);
+    if (tracker) {
+      window.location.href = `/tracker/view/${tracker.slug}`;
+    }
   };
 
   return (
@@ -111,6 +115,8 @@ function TrackerListContent() {
         onFolderSelect={setSelectedFolderId}
         onCreateFolder={() => setShowCreateFolder(true)}
         onEditFolder={handleEditFolder}
+        onTrackerSelect={handleTrackerSelect}
+        className="w-64 border-r flex-shrink-0"
       />
 
       {/* Main Content */}
@@ -148,9 +154,6 @@ function TrackerListContent() {
               <h1 className="text-2xl font-semibold text-gray-900">
                 {getBreadcrumbText()}
               </h1>
-              {selectedFolderId === 'unfiled' && (
-                <p className="text-gray-600 mt-1">Trackers not assigned to any folder</p>
-              )}
             </div>
             <Link
               href="/tracker/builder"
@@ -175,9 +178,7 @@ function TrackerListContent() {
             >
               <Database className="w-16 h-16 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {selectedFolderId === 'unfiled'
-                  ? 'No unfiled trackers'
-                  : selectedFolderId
+                {selectedFolderId
                   ? 'No trackers in this folder'
                   : 'No trackers yet'}
               </h3>
@@ -253,7 +254,7 @@ function TrackerListContent() {
           setShowCreateFolder(false);
           setEditingFolder(null);
         }}
-        parentFolderId={selectedFolderId && selectedFolderId !== 'unfiled' ? selectedFolderId : undefined}
+        parentFolderId={selectedFolderId ? selectedFolderId : undefined}
         editingFolder={editingFolder}
       />
     </div>

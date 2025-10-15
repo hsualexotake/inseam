@@ -5,8 +5,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { Id } from "@packages/backend/convex/_generated/dataModel";
 import {
-  ChevronRight,
-  ChevronDown,
   Folder,
   FolderOpen,
   Plus,
@@ -25,10 +23,11 @@ interface FolderNode {
 }
 
 interface FolderSidebarProps {
-  selectedFolderId?: Id<"trackerFolders"> | null | 'unfiled';
-  onFolderSelect: (folderId: Id<"trackerFolders"> | null | 'unfiled') => void;
+  selectedFolderId?: Id<"trackerFolders"> | null;
+  onFolderSelect: (folderId: Id<"trackerFolders"> | null) => void;
   onCreateFolder: () => void;
   onEditFolder: (folderId: Id<"trackerFolders">) => void;
+  onTrackerSelect?: (trackerId: Id<"trackers">) => void;
   className?: string;
 }
 
@@ -37,11 +36,13 @@ export default function FolderSidebar({
   onFolderSelect,
   onCreateFolder,
   onEditFolder,
+  onTrackerSelect,
   className,
 }: FolderSidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   const folderTree = useQuery(api.trackerFolders.getFolderTree) ?? [];
+  const allTrackers = useQuery(api.trackers.listTrackers, { activeOnly: true }) ?? [];
   const deleteFolder = useMutation(api.trackerFolders.deleteFolder);
 
   const toggleFolder = (folderId: string) => {
@@ -73,34 +74,25 @@ export default function FolderSidebar({
     const isExpanded = expandedFolders.has(folder._id);
     const isSelected = selectedFolderId === folder._id;
     const hasChildren = folder.children.length > 0;
+    const foldersTrackers = allTrackers.filter(t => t.folderId === folder._id);
+    const hasTrackers = foldersTrackers.length > 0;
+    const hasContent = hasChildren || hasTrackers;
 
     return (
       <div key={folder._id}>
         <div
           className={cn(
-            "group flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-100 transition-colors",
+            "group relative flex items-center gap-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-100 transition-colors",
             isSelected && "bg-blue-50 hover:bg-blue-100"
           )}
-          style={{ paddingLeft: `${level * 12 + 8}px` }}
-          onClick={() => onFolderSelect(folder._id)}
+          style={{ paddingLeft: level === 0 ? '8px' : `${level * 12 + 8}px`, paddingRight: '8px' }}
+          onClick={() => {
+            if (hasContent) {
+              toggleFolder(folder._id);
+            }
+            onFolderSelect(folder._id);
+          }}
         >
-          {hasChildren && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleFolder(folder._id);
-              }}
-              className="p-0.5 hover:bg-gray-200 rounded"
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-gray-500" />
-              )}
-            </button>
-          )}
-          {!hasChildren && <div className="w-5" />}
-
           <div className="flex items-center gap-2 flex-1">
             {isExpanded ? (
               <FolderOpen
@@ -121,7 +113,7 @@ export default function FolderSidebar({
             </span>
           </div>
 
-          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+          <div className="absolute right-2 opacity-0 group-hover:opacity-100 flex items-center gap-1 bg-inherit">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -143,8 +135,28 @@ export default function FolderSidebar({
           </div>
         </div>
 
-        {isExpanded && hasChildren && (
+        {isExpanded && hasContent && (
           <div>
+            {/* Render trackers in this folder */}
+            {foldersTrackers.map((tracker) => (
+              <div
+                key={tracker._id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
+                style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
+                onClick={() => onTrackerSelect?.(tracker._id)}
+              >
+                <div className="w-5" />
+                <div
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: tracker.color || "#9CA3AF" }}
+                />
+                <span className="text-sm text-gray-700 truncate">
+                  {tracker.name}
+                </span>
+              </div>
+            ))}
+
+            {/* Render subfolders */}
             {folder.children.map((child) => renderFolder(child, level + 1))}
           </div>
         )}
@@ -162,7 +174,7 @@ export default function FolderSidebar({
         {/* All Trackers */}
         <div
           className={cn(
-            "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-100 transition-colors mb-1",
+            "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-100 transition-colors mb-2",
             selectedFolderId === null && "bg-blue-50 hover:bg-blue-100"
           )}
           onClick={() => onFolderSelect(null)}
@@ -173,24 +185,6 @@ export default function FolderSidebar({
             selectedFolderId === null ? "font-medium text-gray-900" : "text-gray-700"
           )}>
             All Trackers
-          </span>
-        </div>
-
-        {/* Unfiled Trackers */}
-        <div
-          className={cn(
-            "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-100 transition-colors mb-2",
-            selectedFolderId === 'unfiled' && "bg-blue-50 hover:bg-blue-100"
-          )}
-          onClick={() => onFolderSelect('unfiled')}
-          style={{ paddingLeft: '20px' }}
-        >
-          <Folder className="h-4 w-4 text-gray-500" />
-          <span className={cn(
-            "text-sm",
-            selectedFolderId === 'unfiled' ? "font-medium text-gray-900" : "text-gray-700"
-          )}>
-            Unfiled
           </span>
         </div>
 
