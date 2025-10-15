@@ -98,6 +98,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
   const [newRowData, setNewRowData] = useState<Record<string, string | number | boolean>>({});
   const [newRowErrors, setNewRowErrors] = useState<Record<string, string>>({});
   const [savingNewRow, setSavingNewRow] = useState(false);
+  const [editingNewRowCell, setEditingNewRowCell] = useState<string | null>(null);
 
   const updateRow = useMutation(api.trackers.updateRow);
   const deleteRow = useMutation(api.trackers.deleteRow);
@@ -303,7 +304,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
           <input
             type="text"
             {...baseProps}
-            placeholder={placeholder || `Enter ${column.name.toLowerCase()}`}
+            placeholder={placeholder !== undefined ? placeholder : ""}
           />
         );
     }
@@ -323,20 +324,27 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
   // Render cell input for new row
   const renderNewRowInput = (column: ColumnDefinition) => {
     const value = newRowData[column.key];
-    const error = newRowErrors[column.key];
 
     return renderInput(
       column,
       value,
       (newValue) => {
         setNewRowData({ ...newRowData, [column.key]: newValue });
-        if (error) {
-          setNewRowErrors({ ...newRowErrors, [column.key]: "" });
-        }
       },
       {
-        error,
-        className: `flex-1 px-2 py-0.5 text-sm border ${error ? "border-red-500" : "border-gray-300"} rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`
+        onKeyDown: async (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            setEditingNewRowCell(null);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setEditingNewRowCell(null);
+          }
+        },
+        onBlur: () => setEditingNewRowCell(null),
+        autoFocus: true,
+        placeholder: "",
+        className: "w-full px-0 py-0 text-sm border-0 border-b-2 border-blue-500 focus:outline-none focus:ring-0 bg-transparent"
       }
     );
   };
@@ -351,7 +359,8 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
         onKeyDown: handleCellKeyDown,
         onBlur: saveCellEdit,
         autoFocus: true,
-        className: "flex-1 px-2 py-0.5 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        placeholder: "",
+        className: "w-full px-0 py-0 text-sm border-0 border-b-2 border-blue-500 focus:outline-none focus:ring-0 bg-transparent"
       }
     );
   };
@@ -411,21 +420,23 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
               {sortedColumns.map(column => (
                 <th
                   key={column.id}
-                  className="p-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-sm border-l first:border-l-0"
-                  style={{ minWidth: column.width || 120 }}
+                  className="p-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-sm border-l first:border-l-0 group/header"
+                  style={{ minWidth: column.width || 120, maxWidth: column.width || 300 }}
                 >
-                  <ColumnHeader
-                    column={column}
-                    isPrimaryKey={column.key === tracker.primaryKeyColumn}
-                    trackerId={tracker._id}
-                    required={column.required}
-                  />
+                  <div className="overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-track-transparent scrollbar-thumb-transparent group-hover/header:scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400 pb-1.5">
+                    <ColumnHeader
+                      column={column}
+                      isPrimaryKey={column.key === tracker.primaryKeyColumn}
+                      trackerId={tracker._id}
+                      required={column.required}
+                    />
+                  </div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {data.length === 0 ? (
+            {data.length === 0 && !showEmptyRow ? (
               <tr>
                 <td
                   colSpan={sortedColumns.length + 1}
@@ -456,7 +467,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                           <td
                             key={column.id}
                             className={cn(
-                              "p-4 border-l first:border-l-0",
+                              "p-4 border-l first:border-l-0 group/cell",
                               !isEditingThisCell && "cursor-pointer hover:bg-gray-100 transition-colors",
                               isLastColumn && "relative pr-12"
                             )}
@@ -466,34 +477,15 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                               }
                             }}
                           >
-                            <div className="inline-flex flex-row items-center gap-2">
-                              {isEditingThisCell ? (
-                                column.key === tracker.primaryKeyColumn ? (
-                                  <>
-                                    {renderCellInput(column)}
-                                    {aliasCounts[row.rowId] > 0 && (
-                                      <span
-                                        className="inline-flex items-center gap-0.5 text-gray-500"
-                                        title={`${aliasCounts[row.rowId]} alias${aliasCounts[row.rowId] > 1 ? 'es' : ''}`}
-                                      >
-                                        <Tag className="h-3 w-3" />
-                                        <span className="text-xs font-medium">{aliasCounts[row.rowId]}</span>
-                                      </span>
-                                    )}
-                                  </>
-                                ) : (
-                                  renderCellInput(column)
-                                )
-                              ) : (
-                                <>
-                                  {column.key === tracker.primaryKeyColumn ? (
+                            <div className="overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-track-transparent scrollbar-thumb-transparent group-hover/cell:scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400 pb-1.5">
+                              <div className="inline-flex items-center gap-2">
+                                {isEditingThisCell ? (
+                                  column.key === tracker.primaryKeyColumn ? (
                                     <>
-                                      <span className="text-gray-900">
-                                        {formatCellValue(row.data[column.key], column.type)}
-                                      </span>
+                                      {renderCellInput(column)}
                                       {aliasCounts[row.rowId] > 0 && (
                                         <span
-                                          className="inline-flex items-center gap-0.5 text-gray-500 hover:text-gray-700 transition-colors cursor-help"
+                                          className="inline-flex items-center gap-0.5 text-gray-500 flex-shrink-0"
                                           title={`${aliasCounts[row.rowId]} alias${aliasCounts[row.rowId] > 1 ? 'es' : ''}`}
                                         >
                                           <Tag className="h-3 w-3" />
@@ -501,17 +493,38 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                                         </span>
                                       )}
                                     </>
-                                  ) : column.type === "date" && row.data[column.key] ? (
-                                    <code className="rounded-md bg-gray-100 p-1 text-gray-700">
-                                      {formatCellValue(row.data[column.key], column.type)}
-                                    </code>
                                   ) : (
-                                    <span className="text-gray-900">
-                                      {formatCellValue(row.data[column.key], column.type)}
-                                    </span>
-                                  )}
-                                </>
-                              )}
+                                    renderCellInput(column)
+                                  )
+                                ) : (
+                                  <>
+                                    {column.key === tracker.primaryKeyColumn ? (
+                                      <>
+                                        <span className="text-gray-900">
+                                          {formatCellValue(row.data[column.key], column.type)}
+                                        </span>
+                                        {aliasCounts[row.rowId] > 0 && (
+                                          <span
+                                            className="inline-flex items-center gap-0.5 text-gray-500 hover:text-gray-700 transition-colors cursor-help flex-shrink-0"
+                                            title={`${aliasCounts[row.rowId]} alias${aliasCounts[row.rowId] > 1 ? 'es' : ''}`}
+                                          >
+                                            <Tag className="h-3 w-3" />
+                                            <span className="text-xs font-medium">{aliasCounts[row.rowId]}</span>
+                                          </span>
+                                        )}
+                                      </>
+                                    ) : column.type === "date" && row.data[column.key] ? (
+                                      <code className="rounded-md bg-gray-100 p-1 text-gray-700">
+                                        {formatCellValue(row.data[column.key], column.type)}
+                                      </code>
+                                    ) : (
+                                      <span className="text-gray-900">
+                                        {formatCellValue(row.data[column.key], column.type)}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
                             </div>
                             {/* Actions dropdown - positioned absolutely within last column */}
                             {isLastColumn && (
@@ -532,26 +545,54 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
 
                 {/* Empty row for adding new data */}
                 {showEmptyRow && (
-                  <tr className="border-b">
+                  <tr className="border-b hover:bg-gray-50 group relative">
                     {/* Row number for new row */}
                     <td className="w-12 p-2 text-center text-gray-500 border-r text-xs font-medium">
                       {data.length + 1}
                     </td>
                     {sortedColumns.map((column, columnIndex) => {
                       const isLastColumn = columnIndex === sortedColumns.length - 1;
+                      const isEditingThisCell = editingNewRowCell === column.key;
+                      const cellValue = newRowData[column.key];
+                      const hasError = newRowErrors[column.key];
 
                       return (
-                        <td key={column.id} className={cn(
-                          "p-4 border-l first:border-l-0",
-                          isLastColumn && "relative pr-24"
-                        )}>
-                          {renderNewRowInput(column)}
-                          {/* Actions for new row - positioned absolutely within last column */}
+                        <td
+                          key={column.id}
+                          className={cn(
+                            "p-4 border-l first:border-l-0 group/cell",
+                            !isEditingThisCell && "cursor-pointer hover:bg-gray-100 transition-colors",
+                            isLastColumn && "relative pr-12"
+                          )}
+                          onClick={() => {
+                            if (!isEditingThisCell) {
+                              setEditingNewRowCell(column.key);
+                            }
+                          }}
+                        >
+                          <div className="overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-track-transparent scrollbar-thumb-transparent group-hover/cell:scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400 pb-1.5">
+                            <div className="inline-flex items-center gap-2">
+                              {isEditingThisCell ? (
+                                renderNewRowInput(column)
+                              ) : (
+                                <span className={cn(
+                                  "text-gray-900",
+                                  hasError && "text-red-600"
+                                )}>
+                                  {cellValue ? formatCellValue(cellValue, column.type) : "-"}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Actions dropdown - positioned absolutely within last column */}
                           {isLastColumn && (
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10">
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-10">
                               <div className="flex gap-1">
                                 <button
-                                  onClick={handleSaveNewRow}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSaveNewRow();
+                                  }}
                                   disabled={savingNewRow}
                                   className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Save"
@@ -559,7 +600,10 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
                                   {savingNewRow ? "..." : "✓"}
                                 </button>
                                 <button
-                                  onClick={handleCancelNewRow}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelNewRow();
+                                  }}
                                   disabled={savingNewRow}
                                   className="px-2 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
                                   title="Cancel"
@@ -581,7 +625,7 @@ export default function TrackerTable({ tracker, data }: TrackerTableProps) {
       </div>
 
       {/* Subtle add row button below table */}
-      {!showEmptyRow && data.length > 0 && (
+      {!showEmptyRow && (
         <div className="flex justify-center mt-3">
           <button
             onClick={startNewRow}
