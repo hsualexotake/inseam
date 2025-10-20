@@ -100,10 +100,10 @@ describe("Tracker CRUD Operations", () => {
 
     it("should reject creation without authentication", async () => {
       const trackerData = createMockTracker();
-      
+
       await expectAsyncError(
         () => t.mutation(api.trackers.createTracker, trackerData),
-        "Unauthenticated call to protected function"
+        "Please sign in to continue"
       );
     });
 

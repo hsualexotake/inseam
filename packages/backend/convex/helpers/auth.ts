@@ -14,7 +14,7 @@ export async function requireAuth(
 ): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
-    throw new Error("Unauthenticated call to protected function");
+    throw new Error("Please sign in to continue");
   }
   return identity.subject;
 }

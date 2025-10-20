@@ -1,7 +1,7 @@
 import { mutation, query, internalAction, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "../convex/_generated/api";
-import { requireAuth, validateNoteInput } from "./lib/security";
+import { requireAuth } from "./helpers/auth";
 import { Auth } from "convex/server";
 import { areModelsConfigured } from "./ai/models";
 import { executeWithAgentThread } from "./agents/helpers/withAgentThread";
@@ -9,6 +9,46 @@ import { executeWithAgentThread } from "./agents/helpers/withAgentThread";
 // Export for backward compatibility
 export const getUserId = async (ctx: { auth: Auth }) => {
   return (await ctx.auth.getUserIdentity())?.subject;
+};
+
+/**
+ * Validate note input to prevent XSS and ensure data quality
+ */
+const validateNoteInput = (title: string, content: string) => {
+  const errors: string[] = [];
+
+  // Title validation
+  const trimmedTitle = title.trim();
+  if (trimmedTitle.length === 0) {
+    errors.push("Title cannot be empty");
+  }
+  if (trimmedTitle.length > 200) {
+    errors.push("Title must be less than 200 characters");
+  }
+
+  // Content validation
+  if (content.length > 50000) {
+    errors.push("Content must be less than 50KB");
+  }
+
+  // Check for potential XSS attempts
+  const dangerousPatterns = [
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    /javascript:/gi,
+    /on\w+\s*=/gi, // onclick, onload, etc.
+  ];
+
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(title) || pattern.test(content)) {
+      errors.push("Content contains potentially unsafe HTML/JavaScript");
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(errors.join(". "));
+  }
+
+  return { title: trimmedTitle, content };
 };
 
 

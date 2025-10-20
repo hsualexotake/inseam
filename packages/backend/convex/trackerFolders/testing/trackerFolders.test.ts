@@ -195,7 +195,7 @@ describe("TrackerFolders - Comprehensive Tests", () => {
     it("should prevent unauthenticated folder creation", async () => {
       await expect(
         t.mutation(api.trackerFolders.createFolder, { name: "Test" })
-      ).rejects.toThrow(/unauthenticated/i);
+      ).rejects.toThrow(/sign in/i);
     });
   });
 
