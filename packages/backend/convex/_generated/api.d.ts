@@ -25,9 +25,6 @@ import type * as agents_emailHandlerAgent_tools from "../agents/emailHandlerAgen
 import type * as agents_example from "../agents/example.js";
 import type * as agents_helpers_withAgentThread from "../agents/helpers/withAgentThread.js";
 import type * as agents_index from "../agents/index.js";
-import type * as agents_notesAgent_config from "../agents/notesAgent/config.js";
-import type * as agents_notesAgent_index from "../agents/notesAgent/index.js";
-import type * as agents_notesAgent_tools from "../agents/notesAgent/tools.js";
 import type * as agents_playgroundAgents from "../agents/playgroundAgents.js";
 import type * as agents_researchAgent_config from "../agents/researchAgent/config.js";
 import type * as agents_researchAgent_index from "../agents/researchAgent/index.js";
@@ -55,7 +52,6 @@ import type * as helpers_retry from "../helpers/retry.js";
 import type * as lib_folderConstants from "../lib/folderConstants.js";
 import type * as lib_folderHelpers from "../lib/folderHelpers.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
-import type * as lib_security from "../lib/security.js";
 import type * as lib_trackerBatchProcessor from "../lib/trackerBatchProcessor.js";
 import type * as lib_trackerBulkImport from "../lib/trackerBulkImport.js";
 import type * as lib_trackerConstants from "../lib/trackerConstants.js";
@@ -114,9 +110,6 @@ declare const fullApi: ApiFromModules<{
   "agents/example": typeof agents_example;
   "agents/helpers/withAgentThread": typeof agents_helpers_withAgentThread;
   "agents/index": typeof agents_index;
-  "agents/notesAgent/config": typeof agents_notesAgent_config;
-  "agents/notesAgent/index": typeof agents_notesAgent_index;
-  "agents/notesAgent/tools": typeof agents_notesAgent_tools;
   "agents/playgroundAgents": typeof agents_playgroundAgents;
   "agents/researchAgent/config": typeof agents_researchAgent_config;
   "agents/researchAgent/index": typeof agents_researchAgent_index;
@@ -144,7 +137,6 @@ declare const fullApi: ApiFromModules<{
   "lib/folderConstants": typeof lib_folderConstants;
   "lib/folderHelpers": typeof lib_folderHelpers;
   "lib/rateLimit": typeof lib_rateLimit;
-  "lib/security": typeof lib_security;
   "lib/trackerBatchProcessor": typeof lib_trackerBatchProcessor;
   "lib/trackerBulkImport": typeof lib_trackerBulkImport;
   "lib/trackerConstants": typeof lib_trackerConstants;

@@ -5,7 +5,7 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { AgentFactory, AGENT_TYPES, noteTools } from "./index";
+import { AgentFactory, AGENT_TYPES } from "./index";
 import type { AgentType } from "./index";
 import { createThread } from "@convex-dev/agent";
 import { components } from "../_generated/api";
@@ -19,7 +19,6 @@ export const basicAgentUsage = action({
     text: v.string(),
     agentType: v.union(
       v.literal("summary"),
-      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
@@ -49,49 +48,6 @@ export const basicAgentUsage = action({
     return {
       response: result.text,
       agentType,
-      threadId,
-    };
-  },
-});
-
-/**
- * Example 2: Agent with tools
- * Shows how to create an agent with specific tools
- */
-export const agentWithTools = action({
-  args: {
-    request: v.string(),
-  },
-  handler: async (ctx, { request }) => {
-    // Get user ID
-    const auth = await ctx.auth.getUserIdentity();
-    const userId = auth?.subject || "demo-user";
-    
-    // Create a custom agent with note management tools
-    const agent = await AgentFactory.createCustom({
-      name: "Notes Assistant",
-      instructions: `You are a helpful assistant specialized in note management.
-        You have access to tools for searching, creating, and analyzing notes.
-        Use the appropriate tools to help with the user's request.`,
-      tools: noteTools,
-    });
-    
-    // Create thread
-    const threadId = await createThread(ctx, components.agent, {
-      userId,
-      title: "Notes Management Session",
-    });
-    
-    // Process request with tools
-    const result = await agent.generateText(
-      ctx,
-      { threadId, userId },
-      { prompt: request }
-    );
-    
-    return {
-      response: result.text,
-      toolsUsed: result.toolCalls?.length || 0,
       threadId,
     };
   },
@@ -146,6 +102,5 @@ export const streamingExample = action({
 // Export all examples
 export default {
   basicAgentUsage,
-  agentWithTools,
   streamingExample,
 };

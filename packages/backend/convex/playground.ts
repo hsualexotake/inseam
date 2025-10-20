@@ -10,13 +10,12 @@
 
 import { definePlaygroundAPI } from "@convex-dev/agent";
 import { components } from "./_generated/api";
-import { 
-  summaryAgent, 
-  notesAgent, 
-  researchAgent, 
-  analysisAgent, 
+import {
+  summaryAgent,
+  researchAgent,
+  analysisAgent,
   creativeAgent,
-  demoMathAgent 
+  demoMathAgent
 } from "./agents/playgroundAgents";
 
 /**
@@ -24,9 +23,8 @@ import {
  * This exposes the necessary functions for the playground UI to interact with our agents
  * Authorization is handled by API keys generated via CLI
  * 
- * All 6 defined agents are available in the playground:
+ * All 5 defined agents are available in the playground:
  * - Summary Agent: Creates concise summaries
- * - Notes Agent: Manages notes with CRUD operations
  * - Research Agent: Explores and researches topics
  * - Analysis Agent: Analyzes data and patterns
  * - Creative Agent: Creative writing and ideation
@@ -45,7 +43,6 @@ export const {
   // List all available agents for the playground
   agents: [
     summaryAgent,
-    notesAgent,
     researchAgent,
     analysisAgent,
     creativeAgent,

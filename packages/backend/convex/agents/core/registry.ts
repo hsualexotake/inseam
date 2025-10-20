@@ -4,7 +4,6 @@ import type { AgentRegistry } from "./types";
 // Uses dynamic imports for better code splitting and lazy loading
 export const agentRegistry: AgentRegistry = {
   summary: () => import('../summaryAgent'),
-  notes: () => import('../notesAgent'),
   research: () => import('../researchAgent'),
   analysis: () => import('../analysisAgent'),
   creative: () => import('../creativeAgent'),

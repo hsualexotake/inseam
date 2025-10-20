@@ -2,7 +2,7 @@ import { action, mutation, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { saveMessage } from "@convex-dev/agent";
 import { components, internal } from "../_generated/api";
-import { requireAuth } from "../lib/security";
+import { requireAuth } from "../helpers/auth";
 import { AgentFactory, AGENT_TYPES } from "../agents";
 import type { AgentType } from "../agents";
 
@@ -13,7 +13,6 @@ export const sendMessage = mutation({
     prompt: v.string(),
     agentType: v.optional(v.union(
       v.literal("summary"),
-      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
@@ -49,7 +48,6 @@ export const generateResponse: ReturnType<typeof internalAction> = internalActio
     promptMessageId: v.string(),
     agentType: v.union(
       v.literal("summary"),
-      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")
@@ -78,7 +76,6 @@ export const generateTextDirect = action({
     prompt: v.string(),
     agentType: v.optional(v.union(
       v.literal("summary"),
-      v.literal("notes"),
       v.literal("research"),
       v.literal("analysis"),
       v.literal("creative")

@@ -10,7 +10,6 @@ import { getChatModel } from "../ai/models";
 
 // Import agent configurations directly (not dynamically)
 import summaryAgentModule from "./summaryAgent";
-import notesAgentModule from "./notesAgent";
 import researchAgentModule from "./researchAgent";
 import analysisAgentModule from "./analysisAgent";
 import creativeAgentModule from "./creativeAgent";
@@ -34,15 +33,6 @@ export const summaryAgent = new Agent(components.agent, {
   instructions: summaryAgentModule.config.instructions,
   tools: summaryAgentModule.tools || {},
   ...(summaryAgentModule.config.config || {}),
-});
-
-// Notes Agent - Manages user notes with CRUD operations
-export const notesAgent = new Agent(components.agent, {
-  name: notesAgentModule.config.name,
-  languageModel,
-  instructions: notesAgentModule.config.instructions,
-  tools: notesAgentModule.tools || {},
-  ...(notesAgentModule.config.config || {}),
 });
 
 // Research Agent - Explores and researches topics

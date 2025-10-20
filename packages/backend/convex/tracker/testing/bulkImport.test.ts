@@ -457,7 +457,7 @@ describe("Bulk Import Operations", () => {
             mode: "append",
           }
         ),
-        "Unauthenticated call to protected function"
+        "Please sign in to continue"
       );
     });
   });
